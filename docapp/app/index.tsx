@@ -151,11 +151,58 @@ export default function Index() {
     fetchData();
   };
 
+  const getClinicStatus = () => {
+    if (!dashboardStats) return { isOpen: false, text: "Offline", color: "#64748B" };
+
+    const now = new Date();
+    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+    const workingDays = (dashboardStats.working_days || "").split(",");
+    
+    if (!workingDays.includes(dayName)) {
+      return { isOpen: false, text: "Closed Today", color: "#EF4444" };
+    }
+
+    try {
+      const hours = JSON.parse(dashboardStats.working_hours || "{}");
+      const todayHours = hours[dayName];
+      if (!todayHours) return { isOpen: true, text: "Open (Standard)", color: "#10B981" };
+
+      const parseTime = (timeStr: string) => {
+        const [time, modifier] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (modifier === 'PM' && hours < 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+        const d = new Date();
+        d.setHours(hours, minutes, 0, 0);
+        return d;
+      };
+
+      const openTime = parseTime(todayHours.open);
+      const closeTime = parseTime(todayHours.close);
+
+      if (now >= openTime && now <= closeTime) {
+        return { isOpen: true, text: "Open Now", color: "#10B981" };
+      } else {
+        return { isOpen: false, text: `Closed (Opens at ${todayHours.open})`, color: "#EF4444" };
+      }
+    } catch (e) {
+      return { isOpen: true, text: "Open", color: "#10B981" };
+    }
+  };
+
   const renderHome = () => {
     if (!dashboardStats) return <ActivityIndicator size="large" color="#0284C7" style={{ marginTop: 50 }} />;
+    const status = getClinicStatus();
 
     return (
       <ScrollView style={styles.homeContainer}>
+        {/* Live Clinic Status Bar */}
+        <View style={[styles.statusBar, { backgroundColor: status.color + '10', borderColor: status.color + '30' }]}>
+          <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+          <Text style={[styles.statusText, { color: status.color }]}>{status.text.toUpperCase()}</Text>
+          <View style={{ flex: 1 }} />
+          <Text style={styles.statusTime}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+        </View>
         {/* Real-Life Onboarding Hub */}
         <View style={styles.onboardingCard}>
           <View style={styles.onboardingHeader}>
@@ -197,15 +244,15 @@ export default function Index() {
           </View>
 
           <TouchableOpacity
-            style={[styles.onboardingBtn, { backgroundColor: '#7C3AED', marginTop: 10 }]}
-            onPress={() => router.push("/today-appointments")}
+            style={[styles.onboardingBtn, { backgroundColor: '#6366F1', marginTop: 10 }]}
+            onPress={() => router.push("/start-campaign")}
           >
             <View style={styles.onboardingIconBox}>
-              <Ionicons name="list-outline" size={22} color="white" />
+              <Ionicons name="megaphone-outline" size={22} color="white" />
             </View>
             <View>
-              <Text style={styles.onboardingBtnText}>Today's Queue Report</Text>
-              <Text style={styles.onboardingBtnSub}>View Serial / Token Numbers</Text>
+              <Text style={styles.onboardingBtnText}>Bulk Patient Campaign</Text>
+              <Text style={styles.onboardingBtnSub}>Mass Messaging & Health Alerts</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -222,32 +269,32 @@ export default function Index() {
             <View style={[styles.statIcon, { backgroundColor: '#FFEDD5' }]}>
               <Ionicons name="calendar" size={20} color="#EA580C" />
             </View>
-            <Text style={styles.statValue}>{dashboardStats.reminders}</Text>
-            <Text style={styles.statLabel}>Today Reminders</Text>
+            <Text style={styles.statValue}>{dashboardStats.today_reminders}</Text>
+            <Text style={styles.statLabel}>Today Queue</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: '#ECFDF5' }]}>
             <View style={[styles.statIcon, { backgroundColor: '#D1FAE5' }]}>
               <Ionicons name="sparkles" size={20} color="#059669" />
             </View>
             <Text style={styles.statValue}>{dashboardStats.new_patients}</Text>
-            <Text style={styles.statLabel}>New Patients</Text>
+            <Text style={styles.statLabel}>New (7 Days)</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: '#F5F3FF' }]}>
             <View style={[styles.statIcon, { backgroundColor: '#EDE9FE' }]}>
               <Ionicons name="shield-checkmark" size={20} color="#7C3AED" />
             </View>
             <Text style={styles.statValue}>{dashboardStats.old_patients}</Text>
-            <Text style={styles.statLabel}>Old Customers</Text>
+            <Text style={styles.statLabel}>Old Patients</Text>
           </View>
 
         </View>
 
         <View style={styles.chartSection}>
-          <Text style={styles.sectionTitle}>Patient Growth (Last 6 Months)</Text>
+          <Text style={styles.sectionTitle}>Patient Growth (Last 7 Days)</Text>
           <LineChart
             data={{
-              labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-              datasets: [{ data: dashboardStats.growth }]
+              labels: dashboardStats.growth_labels || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+              datasets: [{ data: dashboardStats.growth || [0, 0, 0, 0, 0, 0, 0] }]
             }}
             width={width - 40}
             height={200}
@@ -631,6 +678,35 @@ const styles = StyleSheet.create({
   },
   statusPending: {
     color: "#D97706",
+  },
+  homeContainer: {
+    flex: 1,
+    padding: 15,
+  },
+  statusBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 15,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 10,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  statusTime: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
   },
   emptyText: {
     color: "#94A3B8",

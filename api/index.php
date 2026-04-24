@@ -514,6 +514,73 @@ switch ($action) {
         echo json_encode(['success' => true, 'data' => $data]);
         break;
 
+    case 'start_campaign':
+        $category_ids = $_POST['category_ids'] ?? ''; // Comma separated IDs
+        $template_id = $_POST['template_id'] ?? '';
+
+        if (!$category_ids || !$template_id) {
+            echo json_encode(['success' => false, 'message' => 'Missing category or template']);
+            exit;
+        }
+
+        // Fetch Template
+        $template = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM templates WHERE id = $template_id"));
+        if (!$template) {
+            echo json_encode(['success' => false, 'message' => 'Template not found']);
+            exit;
+        }
+
+        // Fetch Clinic Info for variables
+        $clinic_name = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name'"))['setting_value'] ?? '';
+        $clinic_address = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address'"))['setting_value'] ?? '';
+        $clinic_info = "$clinic_name\n$clinic_address";
+
+        // Fetch Unique Patients in selected Categories
+        $sql = "SELECT DISTINCT * FROM patients WHERE category_id IN ($category_ids)";
+        $res = mysqli_query($conn, $sql);
+        $count = 0;
+        
+        while ($row = mysqli_fetch_assoc($res)) {
+            $variables = [
+                $row['name'],
+                $template['message'], // Use the template's message as variable 2 if needed, or customize
+                $clinic_info
+            ];
+            
+            // Call the correct AOC WhatsApp helper
+            send_aoc_whatsapp(
+                $row['phone'],
+                $template['template_name'],
+                $variables,
+                $template['header_type'],
+                $template['header_url']
+            );
+            $count++;
+        }
+
+        echo json_encode(['success' => true, 'message' => "Campaign launched successfully to $count patients."]);
+        break;
+
+    case 'upload_image':
+        if (!isset($_FILES['image'])) {
+            echo json_encode(['success' => false, 'message' => 'No image uploaded']);
+            exit;
+        }
+
+        $file = $_FILES['image'];
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $new_name = 'clinic_' . time() . '.' . $ext;
+        $target = '../uploads/' . $new_name;
+
+        if (move_uploaded_file($file['tmp_name'], $target)) {
+            $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+            $url = "$protocol://" . $_SERVER['HTTP_HOST'] . str_replace('api/index.php', '', $_SERVER['SCRIPT_NAME']) . 'uploads/' . $new_name;
+            echo json_encode(['success' => true, 'url' => $url]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Upload failed']);
+        }
+        break;
+
     case 'get_dashboard_stats':
         $patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM patients"))['count'];
         $categories = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM categories"))['count'];
@@ -530,8 +597,16 @@ switch ($action) {
         $new_patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM patients WHERE created_at >= '$seven_days_ago'"))['count'];
         $old_patients = $patients - $new_patients;
         
-        // Monthly growth (dummy data for chart if needed or real query)
-        $growth = [20, 45, 28, 80, 99, 43]; // Last 6 months patient registrations
+        // Patient growth (Actual data for last 7 days)
+        $growth_data = [];
+        $growth_labels = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $d = date('Y-m-d', strtotime("-$i days"));
+            $label = date('D', strtotime($d));
+            $cnt = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM patients WHERE DATE(created_at) = '$d'"))['count'];
+            $growth_data[] = (int)$cnt;
+            $growth_labels[] = $label;
+        }
         
         echo json_encode([
             'success' => true, 
@@ -541,9 +616,10 @@ switch ($action) {
                 'old_patients' => $old_patients,
                 'categories' => $categories,
                 'templates' => $templates,
-                'reminders' => $reminders,
-                'fees_today' => (float)$fees_today,
-                'growth' => $growth
+                'today_reminders' => $reminders,
+                'revenue_today' => (float)$fees_today,
+                'growth' => $growth_data,
+                'growth_labels' => $growth_labels
             ]
         ]);
         break;

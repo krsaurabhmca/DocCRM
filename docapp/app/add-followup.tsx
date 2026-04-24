@@ -39,6 +39,7 @@ export default function AddFollowup() {
     notes: ""
   });
   const [showCalendar, setShowCalendar] = useState(false);
+  const [workingDays, setWorkingDays] = useState<string[]>([]);
 
   useEffect(() => {
     if (patientId && patientName) {
@@ -65,6 +66,8 @@ export default function AddFollowup() {
         newFee = parseFloat(setJson.data.default_consultation_fee || "0");
         followFee = parseFloat(setJson.data.followup_consultation_fee || "0");
         validity = parseInt(setJson.data.fee_validity_days || "15");
+        const wd = setJson.data.working_days || "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday";
+        setWorkingDays(wd.split(","));
       }
       
       // 2. Fetch Patient History if patientId exists
@@ -255,11 +258,35 @@ export default function AddFollowup() {
                   <Calendar
                     current={form.followup_date}
                     onDayPress={(day: any) => {
+                      const dateObj = new Date(day.dateString);
+                      const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                      
+                      if (!workingDays.includes(dayName)) {
+                        Alert.alert("Closed Day", `The clinic is scheduled to be closed on ${dayName}s. Please select a working day for the follow-up.`, [
+                          { text: "OK", style: "cancel" }
+                        ]);
+                        return;
+                      }
+                      
                       setForm({ ...form, followup_date: day.dateString });
                       setShowCalendar(false);
                     }}
                     markedDates={{
-                      [form.followup_date]: { selected: true, selectedColor: Theme.colors.primary }
+                      ...(() => {
+                        const marks: any = {};
+                        // Dim days for the next 90 days
+                        for(let i=0; i<90; i++) {
+                          const d = new Date();
+                          d.setDate(d.getDate() + i);
+                          const dStr = d.toISOString().split('T')[0];
+                          const dName = d.toLocaleDateString('en-US', { weekday: 'long' });
+                          if(!workingDays.includes(dName)) {
+                            marks[dStr] = { disabled: true, disableTouchEvent: true, textColor: '#CBD5E1' };
+                          }
+                        }
+                        return marks;
+                      })(),
+                      [form.followup_date]: { selected: true, selectedColor: Theme.colors.primary, disableTouchEvent: false }
                     }}
                     theme={{
                       todayTextColor: Theme.colors.primary,
@@ -267,6 +294,7 @@ export default function AddFollowup() {
                       arrowColor: Theme.colors.primary,
                       textDayFontWeight: '600',
                       textMonthFontWeight: '800',
+                      textDisabledColor: '#CBD5E1'
                     }}
                   />
                 </View>

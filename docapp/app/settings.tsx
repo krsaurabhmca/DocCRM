@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Theme } from "../styles/Theme";
 import { GlobalStyles } from "../styles/GlobalStyles";
+import { Config } from "../Config";
 
 export default function Settings() {
   const router = useRouter();
@@ -19,30 +20,41 @@ export default function Settings() {
 
   const settingsOptions = [
     {
-      title: "Patient Management",
-      data: [
-        { id: "categories", name: "Manage Categories", icon: "pricetags-outline", color: "#059669", route: "/manage-categories" },
-        { id: "templates", name: "Message Templates", icon: "document-text-outline", color: "#0284C7", route: "/manage-templates" },
-        { id: "whatsapp", name: "WhatsApp Automation", icon: "logo-whatsapp", color: "#25D366", route: "/whatsapp-settings" },
-        { id: "followup_rules", name: "Messaging & Followups", icon: "flash-outline", color: "#EA580C", route: "/followup-settings" },
-        { id: "add_patient", name: "Register New Patient", icon: "person-add-outline", color: "#8B5CF6", route: "/add-patient" },
-      ]
-    },
-    {
-      title: "Clinic Operations",
+      title: "🏥 Clinic Identity & Staff",
       data: [
         { id: "profile", name: "Clinic Profile & Branding", icon: "business-outline", color: "#8B5CF6", route: "/clinic-profile" },
         { id: "doctors", name: "Manage Doctors", icon: "medkit-outline", color: "#0284C7", route: "/manage-doctors" },
-        { id: "limits", name: "Daily Patient Limits", icon: "speedometer-outline", color: "#F59E0B", route: "/daily-limits" },
-        { id: "finance", name: "Revenue Dashboard", icon: "stats-chart-outline", color: "#059669", route: "/finance" },
-        { id: "finance_rules", name: "Billing Configuration", icon: "wallet-outline", color: "#10B981", route: "/finance-settings" },
+        { id: "working_days", name: "Working Days & Schedule", icon: "calendar-outline", color: "#EC4899", route: "/working-days" },
+        { id: "limits", name: "Patient Flow Capacity", icon: "speedometer-outline", color: "#F59E0B", route: "/daily-limits" },
       ]
     },
     {
-      title: "System",
+      title: "💬 Communication & CRM",
       data: [
-        { id: "api", name: "API Connection Status", icon: "radio-outline", color: "#64748B", route: null },
-        { id: "about", name: "About DocCRM", icon: "information-circle-outline", color: "#64748B", route: null },
+        { id: "campaign", name: "Launch Bulk Campaign", icon: "megaphone-outline", color: "#6366F1", route: "/start-campaign" },
+        { id: "whatsapp", name: "WhatsApp API Settings", icon: "logo-whatsapp", color: "#25D366", route: "/whatsapp-settings" },
+        { id: "templates", name: "Message Templates", icon: "document-text-outline", color: "#0284C7", route: "/manage-templates" },
+        { id: "followup_rules", name: "Automation Rules", icon: "flash-outline", color: "#EA580C", route: "/followup-settings" },
+      ]
+    },
+    {
+      title: "💰 Finance & Revenue",
+      data: [
+        { id: "finance", name: "Revenue Analytics", icon: "stats-chart-outline", color: "#059669", route: "/finance" },
+        { id: "finance_rules", name: "Billing & Consultation Fees", icon: "wallet-outline", color: "#10B981", route: "/finance-settings" },
+      ]
+    },
+    {
+      title: "📁 Data Management",
+      data: [
+        { id: "categories", name: "Patient Categories", icon: "pricetags-outline", color: "#6366F1", route: "/manage-categories" },
+      ]
+    },
+    {
+      title: "⚙️ System",
+      data: [
+        { id: "api", name: "System Connection", icon: "radio-outline", color: "#64748B", route: null },
+        { id: "about", name: "About & Support", icon: "information-circle-outline", color: "#64748B", route: "/about" },
       ]
     }
   ];
@@ -75,8 +87,8 @@ export default function Settings() {
       ))}
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>DocCRM Mobile v1.0.0</Text>
-        <Text style={styles.footerSub}>Connected to 192.168.1.15</Text>
+        <Text style={styles.footerText}>DocCRM Mobile v{Config.VERSION}</Text>
+        <Text style={styles.footerSub}>Connected to {Config.API_BASE.split('/')[2]}</Text>
       </View>
 
       <View style={{ height: insets.bottom + 20 }} />
