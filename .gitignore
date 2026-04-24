@@ -1,0 +1,18 @@
+# Expo / React Native
+docapp/node_modules/
+docapp/.expo/
+docapp/dist/
+docapp/npm-debug.log*
+docapp/yarn-debug.log*
+docapp/yarn-error.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Project
+uploads/*
+!uploads/clinic_banner_default.png
+!uploads/.gitkeep
+api/config.php
+.env
