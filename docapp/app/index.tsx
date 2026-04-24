@@ -20,11 +20,12 @@ import { Calendar } from "react-native-calendars";
 import { LineChart } from "react-native-chart-kit";
 import { Dimensions } from "react-native";
 
+import { Config } from "../Config";
+
 const { width } = Dimensions.get("window");
 
-// CONFIG - Update this with your local machine IP
-const API_BASE = "http://192.168.1.15/doccrm/api/index.php";
-const API_KEY = "DOC_CRM_API_SECRET_2026";
+const API_BASE = Config.API_BASE;
+const API_KEY = Config.API_KEY;
 
 type TabType = "Home" | "Patients" | "Reminders";
 

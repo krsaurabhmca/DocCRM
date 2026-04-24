@@ -15,4 +15,5 @@ uploads/*
 !uploads/clinic_banner_default.png
 !uploads/.gitkeep
 api/config.php
+docapp/Config.ts
 .env

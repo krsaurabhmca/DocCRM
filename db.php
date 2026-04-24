@@ -1,25 +1,22 @@
 <?php
+require_once __DIR__ . '/api/config.php';
 date_default_timezone_set('Asia/Kolkata');
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$dbname = 'doccrm_db';
 
 // First connect without database to create it if it doesn't exist
-$conn = mysqli_connect($host, $username, $password);
+$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASS);
 
 if (!$conn) {
     die("Connection failed: " . mysqli_connect_error());
 }
 
 // Create database if not exists
-$sql = "CREATE DATABASE IF NOT EXISTS $dbname";
+$sql = "CREATE DATABASE IF NOT EXISTS DB_NAME";
 if (!mysqli_query($conn, $sql)) {
     die("Error creating database: " . mysqli_error($conn));
 }
 
 // Now connect to the database
-$conn = mysqli_connect($host, $username, $password, $dbname);
+$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 if (!$conn) {
     die("Connection failed: " . mysqli_connect_error());

@@ -14,9 +14,10 @@ import { useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Theme } from "../styles/Theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Config } from "../Config";
 
-const API_BASE = "http://192.168.1.15/doccrm/api/index.php";
-const API_KEY = "DOC_CRM_API_SECRET_2026";
+const API_BASE = Config.API_BASE;
+const API_KEY = Config.API_KEY;
 
 type TabStatus = "Scheduled" | "Completed";
 

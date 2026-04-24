@@ -16,9 +16,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Theme } from "../styles/Theme";
 import { GlobalStyles } from "../styles/GlobalStyles";
+import { Config } from "../Config";
 
-const API_BASE = "http://192.168.1.15/doccrm/api/index.php";
-const API_KEY = "DOC_CRM_API_SECRET_2026";
+const API_BASE = Config.API_BASE;
+const API_KEY = Config.API_KEY;
 
 export default function AddPatient() {
   const router = useRouter();
