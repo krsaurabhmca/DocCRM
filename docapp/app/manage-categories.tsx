@@ -1,0 +1,117 @@
+import React, { useState, useEffect } from "react";
+import { 
+  Text, 
+  View, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  ActivityIndicator,
+  RefreshControl,
+  Alert
+} from "react-native";
+import { useRouter, Stack } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const API_BASE = "http://192.168.1.15/doccrm/api/index.php";
+const API_KEY = "DOC_CRM_API_SECRET_2026";
+
+export default function ManageCategories() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const response = await fetch(`${API_BASE}?action=get_categories`, {
+        headers: { "X-API-KEY": API_KEY }
+      });
+      const json = await response.json();
+      if (json.success) {
+        setData(json.data);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const deleteCategory = (id: number) => {
+    Alert.alert("Delete Category", "Are you sure? Patients in this category will not be deleted, but the grouping will be removed.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        const response = await fetch(`${API_BASE}?action=delete_category&id=${id}`, {
+          headers: { "X-API-KEY": API_KEY }
+        });
+        const json = await response.json();
+        if (json.success) fetchData();
+      }}
+    ]);
+  };
+
+  const renderItem = ({ item }: { item: any }) => (
+    <TouchableOpacity 
+      style={styles.listItem}
+      onPress={() => router.push({ pathname: "/add-category", params: { id: item.id, name: item.name } })}
+    >
+      <View style={[styles.avatar, { backgroundColor: "#ECFDF5" }]}>
+        <Ionicons name="pricetag" size={24} color="#059669" />
+      </View>
+      <View style={styles.itemContent}>
+        <View style={styles.itemHeader}>
+          <Text style={styles.itemName}>{item.name}</Text>
+          <TouchableOpacity onPress={() => deleteCategory(item.id)}>
+            <Ionicons name="trash-outline" size={20} color="#94A3B8" />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.itemSubtext}>{item.patient_count || 0} Patients Assigned</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.container}>
+      <Stack.Screen options={{ title: "Manage Categories" }} />
+      
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#0284C7" />
+        </View>
+      ) : (
+        <FlatList
+          data={data}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchData();}} />}
+          ListEmptyComponent={<View style={styles.center}><Text>No categories found.</Text></View>}
+        />
+      )}
+
+      <TouchableOpacity style={styles.fab} onPress={() => router.push("/add-category")}>
+        <Ionicons name="add" size={30} color="white" />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "white" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 50 },
+  list: { paddingVertical: 10 },
+  listItem: { flexDirection: "row", paddingHorizontal: 15, paddingVertical: 12, alignItems: "center" },
+  avatar: { width: 50, height: 50, borderRadius: 25, justifyContent: "center", alignItems: "center", marginRight: 15 },
+  itemContent: { flex: 1, borderBottomWidth: 0.5, borderBottomColor: "#E2E8F0", paddingBottom: 12 },
+  itemHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  itemName: { fontSize: 16, fontWeight: "600", color: "#1E293B" },
+  itemSubtext: { fontSize: 13, color: "#64748B", marginTop: 4 },
+  fab: { position: "absolute", bottom: 30, right: 30, backgroundColor: "#059669", width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center", elevation: 5 },
+});
