@@ -80,6 +80,7 @@ export default function AddTemplate() {
   };
 
   const fetchTemplateData = async () => {
+    try {
       const response = await fetch(`${API_BASE}?action=get_template&id=${id}`, {
         headers: { "X-API-KEY": API_KEY }
       });
