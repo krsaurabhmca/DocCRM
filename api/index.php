@@ -429,7 +429,7 @@ if ($action) {
                 }
             }
 
-            if ($name && $part1) {
+            if ($name && $part2) {
                 if ($is_default == 1) {
                     mysqli_query($conn, "UPDATE templates SET is_default = 0");
                 }

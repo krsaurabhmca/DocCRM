@@ -130,8 +130,13 @@ export default function AddTemplate() {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.content_part2) {
-      Alert.alert("Error", "Please fill name and Message Part 2 (Mandatory).");
+    if (!form.name.trim()) {
+      Alert.alert("Error", "Please enter a Message Title.");
+      return;
+    }
+
+    if (!form.content_part2.trim()) {
+      Alert.alert("Error", "Message Part 2 (Main Content) is mandatory.");
       return;
     }
 
