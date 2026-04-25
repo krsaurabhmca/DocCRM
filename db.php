@@ -262,9 +262,22 @@ if ($check_slug && mysqli_num_rows($check_slug) == 0) {
     mysqli_query($conn, "ALTER TABLE templates ADD COLUMN slug VARCHAR(50) UNIQUE NULL AFTER id");
 }
 
-// Seed locked templates
-$clinic_name = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name'"))['setting_value'] ?? "Our Clinic";
-$clinic_addr = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address'"))['setting_value'] ?? "";
+// Safer check for settings
+$clinic_name = "Our Clinic";
+$clinic_addr = "";
+$check_settings_table = mysqli_query($conn, "SHOW TABLES LIKE 'app_settings'");
+if ($check_settings_table && mysqli_num_rows($check_settings_table) > 0) {
+    $cn_res = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name'");
+    if ($cn_res) {
+        $cn_row = mysqli_fetch_assoc($cn_res);
+        if ($cn_row) $clinic_name = $cn_row['setting_value'];
+    }
+    $ca_res = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address'");
+    if ($ca_res) {
+        $ca_row = mysqli_fetch_assoc($ca_res);
+        if ($ca_row) $clinic_addr = $ca_row['setting_value'];
+    }
+}
 $part3_default = "*$clinic_name*\n$clinic_addr";
 
 // 1. Greeting Message
