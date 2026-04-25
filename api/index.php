@@ -806,4 +806,6 @@ if ($action) {
         break;
     }
 }
-mysqli_close($conn);
+if (!defined('INTERNAL_ACCESS')) {
+    mysqli_close($conn);
+}
