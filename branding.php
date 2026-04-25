@@ -26,8 +26,9 @@ if (isset($_POST['update_settings'])) {
     // 4. Handle Logo Upload
     if (!empty($_FILES['clinic_logo']['name'])) {
         $target_dir = "uploads/";
+        if(!is_dir($target_dir)) mkdir($target_dir, 0777, true);
         $file_ext = pathinfo($_FILES["clinic_logo"]["name"], PATHINFO_EXTENSION);
-        $new_name = "clinic_logo_" . time() . "." . $file_ext;
+        $new_name = "logo_" . uniqid() . "_" . time() . "." . $file_ext;
         if (move_uploaded_file($_FILES["clinic_logo"]["tmp_name"], $target_dir . $new_name)) {
             $logo_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . str_replace(basename($_SERVER['SCRIPT_NAME']), '', $_SERVER['SCRIPT_NAME']) . 'uploads/' . $new_name;
             mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES ('clinic_logo', '$logo_url') ON DUPLICATE KEY UPDATE setting_value='$logo_url'");
@@ -37,8 +38,9 @@ if (isset($_POST['update_settings'])) {
     // 5. Handle Cover Photo Upload
     if (!empty($_FILES['clinic_cover']['name'])) {
         $target_dir = "uploads/";
+        if(!is_dir($target_dir)) mkdir($target_dir, 0777, true);
         $file_ext = pathinfo($_FILES["clinic_cover"]["name"], PATHINFO_EXTENSION);
-        $new_name = "clinic_cover_" . time() . "." . $file_ext;
+        $new_name = "cover_" . uniqid() . "_" . time() . "." . $file_ext;
         if (move_uploaded_file($_FILES["clinic_cover"]["tmp_name"], $target_dir . $new_name)) {
             $cover_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . str_replace(basename($_SERVER['SCRIPT_NAME']), '', $_SERVER['SCRIPT_NAME']) . 'uploads/' . $new_name;
             mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES ('clinic_cover', '$cover_url') ON DUPLICATE KEY UPDATE setting_value='$cover_url'");

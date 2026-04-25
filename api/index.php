@@ -82,43 +82,27 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
         $mediaUrl = $headerImage;
     }
 
-    $bodyParams = [];
-    foreach ($params as $p) {
-        $bodyParams[] = ["type" => "text", "text" => (string)$p];
-    }
-
     $components = [
-        [
-            "type" => "body",
-            "parameters" => $bodyParams
-        ]
+        "body" => ["params" => array_values($params)]
     ];
 
     if ($headerType !== 'none' && $mediaUrl) {
-        $headerParam = ["type" => $headerType];
         if ($headerType === 'image') {
-            $headerParam["image"] = ["link" => $mediaUrl];
+            $components["header"] = ["type" => "image", "image" => ["link" => $mediaUrl]];
         } else if ($headerType === 'video') {
-            $headerParam["video"] = ["link" => $mediaUrl];
+            $components["header"] = ["type" => "video", "video" => ["link" => $mediaUrl]];
         } else if ($headerType === 'document') {
-            $headerParam["document"] = ["link" => $mediaUrl, "filename" => "Document"];
+             $components["header"] = ["type" => "document", "document" => ["link" => $mediaUrl, "filename" => "Document"]];
         }
-        
-        $components[] = [
-            "type" => "header",
-            "parameters" => [$headerParam]
-        ];
     }
 
     $payload = [
-        "messaging_product" => "whatsapp",
+        "from" => $from,
         "to" => $to,
+        "templateName" => $templateName,
         "type" => "template",
-        "template" => [
-            "name" => $templateName,
-            "language" => ["code" => "en_US"],
-            "components" => $components
-        ]
+        "components" => $components,
+        "campaignName" => "DocCRM_Auto"
     ];
 
     $ch = curl_init($url);
@@ -423,7 +407,8 @@ if ($action) {
         if (isset($_FILES['media']) && $_FILES['media']['error'] == UPLOAD_ERR_OK) {
             $upload_dir = '../uploads/';
             if(!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-            $filename = 'template_' . time() . '_' . basename($_FILES['media']['name']);
+            $extension = pathinfo($_FILES['media']['name'], PATHINFO_EXTENSION);
+            $filename = 'template_' . uniqid() . '_' . time() . '.' . $extension;
             $target_path = $upload_dir . $filename;
             if(move_uploaded_file($_FILES['media']['tmp_name'], $target_path)) {
                 $media_url = 'uploads/' . $filename;
