@@ -1,4 +1,5 @@
 <?php
+define('INTERNAL_ACCESS', true);
 require_once 'db.php';
 require_once 'api/index.php';
 
