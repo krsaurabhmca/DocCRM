@@ -37,7 +37,7 @@ if (!defined('INTERNAL_ACCESS')) {
 $action = $_GET['action'] ?? '';
 
 // AOC Portal WhatsApp Helper
-function old_send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none', $mediaUrl = '')
+function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none', $mediaUrl = '')
 {
     global $conn;
 

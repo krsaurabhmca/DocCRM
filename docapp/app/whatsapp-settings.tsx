@@ -178,7 +178,7 @@ export default function WhatsAppSettings() {
             />
           </View>
 
-          <Text style={[styles.label, { marginTop: 20, color: Theme.colors.primary }]}>Global Default Template Name (MANDATORY)</Text>
+          <Text style={[styles.label, { marginTop: 20, color: Theme.colors.primary }]}>Default Template Name*</Text>
           <View style={[styles.inputWrapper, { borderColor: Theme.colors.primary }]}>
             <Ionicons name="flash-outline" size={20} color={Theme.colors.primary} />
             <TextInput
