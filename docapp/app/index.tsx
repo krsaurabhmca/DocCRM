@@ -22,6 +22,7 @@ import { Dimensions } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Config } from "../Config";
+import { useAuth } from "./_layout";
 
 const { width } = Dimensions.get("window");
 
@@ -32,6 +33,7 @@ type TabType = "Home" | "Patients" | "Reminders";
 
 export default function Index() {
   const router = useRouter();
+  const { setIsAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("Home");
 
   const handleLogout = () => {
@@ -45,6 +47,7 @@ export default function Index() {
           style: "destructive",
           onPress: async () => {
             await AsyncStorage.clear();
+            setIsAuthenticated(false);
             router.replace("/login");
           }
         }

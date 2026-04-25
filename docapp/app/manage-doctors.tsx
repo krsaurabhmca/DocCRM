@@ -144,12 +144,12 @@ export default function ManageDoctors() {
       ) : (
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
           <ScrollView style={styles.formContent}>
-            <View style={styles.formHeader}>
+            {/* <View style={styles.formHeader}>
               <TouchableOpacity onPress={() => setShowAdd(false)}>
                 <Ionicons name="arrow-back" size={24} color="#1E293B" />
               </TouchableOpacity>
               <Text style={styles.formTitle}>{form.id ? "Edit Profile" : "Add New Doctor"}</Text>
-            </View>
+            </View> */}
 
             <View style={styles.inputSection}>
               <Text style={styles.label}>Full Name *</Text>
