@@ -64,14 +64,14 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
 
     $apiKey = $settings['whatsapp_api_key'] ?? '';
     $from = $settings['whatsapp_from_number'] ?? '';
-    $defaultTpl = $settings['whatsapp_default_template'] ?? 'info_update_43';
+    $templateName = $settings['whatsapp_default_template'] ?? 'info_update_43';
     $clinicInfo = trim(($settings['clinic_name'] ?? '') . " " . ($settings['clinic_address'] ?? ''));
     $headerImage = $settings['whatsapp_header_image'] ?? '';
 
     // 🔹 Fallback to default template if none provided
-    if (empty($templateName)) {
-        $templateName = $defaultTpl;
-    }
+    // if (empty($templateName)) {
+    //     $templateName = $defaultTpl;
+    // }
 
     if (!$apiKey || !$from) {
         return ['success' => false, 'error' => 'Missing API key or sender'];
