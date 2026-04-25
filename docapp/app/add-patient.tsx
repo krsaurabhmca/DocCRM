@@ -23,7 +23,7 @@ const API_KEY = Config.API_KEY;
 
 export default function AddPatient() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id, today } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -149,6 +149,7 @@ export default function AddPatient() {
         },
         body: JSON.stringify({
           id: id ? parseInt(id as string) : 0,
+          is_today: today === "1" ? 1 : 0,
           ...form
         })
       });
@@ -174,7 +175,7 @@ export default function AddPatient() {
       style={{ flex: 1 }}
     >
       <ScrollView style={styles.container}>
-        <Stack.Screen options={{ title: id ? "Edit Clinical File" : "Patient Onboarding" }} />
+        <Stack.Screen options={{ title: today === "1" ? "Add Today Appointment" : (id ? "Edit Clinical File" : "Patient Onboarding") }} />
         {/* 
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{id ? "Update Information" : "New Patient Registration"}</Text>

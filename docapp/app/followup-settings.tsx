@@ -13,8 +13,10 @@ import { useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const API_BASE = "http://192.168.1.15/doccrm/api/index.php";
-const API_KEY = "DOC_CRM_API_SECRET_2026";
+import { Config } from "../Config";
+
+const API_BASE = Config.API_BASE;
+const API_KEY = Config.API_KEY;
 
 export default function FollowupSettings() {
   const router = useRouter();

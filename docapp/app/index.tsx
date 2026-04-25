@@ -138,71 +138,18 @@ export default function Index() {
   useEffect(() => {
     setLoading(true);
     fetchData();
-  }, [activeTab]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [activeTab, searchQuery, selectedDate])
-  );
+  }, [activeTab, searchQuery, selectedDate]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
   };
 
-  const getClinicStatus = () => {
-    if (!dashboardStats) return { isOpen: false, text: "Offline", color: "#64748B" };
-
-    const now = new Date();
-    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-    const workingDays = (dashboardStats.working_days || "").split(",");
-    
-    if (!workingDays.includes(dayName)) {
-      return { isOpen: false, text: "Closed Today", color: "#EF4444" };
-    }
-
-    try {
-      const hours = JSON.parse(dashboardStats.working_hours || "{}");
-      const todayHours = hours[dayName];
-      if (!todayHours) return { isOpen: true, text: "Open (Standard)", color: "#10B981" };
-
-      const parseTime = (timeStr: string) => {
-        const [time, modifier] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (modifier === 'PM' && hours < 12) hours += 12;
-        if (modifier === 'AM' && hours === 12) hours = 0;
-        const d = new Date();
-        d.setHours(hours, minutes, 0, 0);
-        return d;
-      };
-
-      const openTime = parseTime(todayHours.open);
-      const closeTime = parseTime(todayHours.close);
-
-      if (now >= openTime && now <= closeTime) {
-        return { isOpen: true, text: "Open Now", color: "#10B981" };
-      } else {
-        return { isOpen: false, text: `Closed (Opens at ${todayHours.open})`, color: "#EF4444" };
-      }
-    } catch (e) {
-      return { isOpen: true, text: "Open", color: "#10B981" };
-    }
-  };
-
   const renderHome = () => {
     if (!dashboardStats) return <ActivityIndicator size="large" color="#0284C7" style={{ marginTop: 50 }} />;
-    const status = getClinicStatus();
 
     return (
       <ScrollView style={styles.homeContainer}>
-        {/* Live Clinic Status Bar */}
-        <View style={[styles.statusBar, { backgroundColor: status.color + '10', borderColor: status.color + '30' }]}>
-          <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-          <Text style={[styles.statusText, { color: status.color }]}>{status.text.toUpperCase()}</Text>
-          <View style={{ flex: 1 }} />
-          <Text style={styles.statusTime}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-        </View>
         {/* Real-Life Onboarding Hub */}
         <View style={styles.onboardingCard}>
           <View style={styles.onboardingHeader}>
@@ -220,39 +167,35 @@ export default function Index() {
                 <Ionicons name="person-add" size={22} color="white" />
               </View>
               <View>
-                <Text style={styles.onboardingBtnText}>New Patient</Text>
-                <Text style={styles.onboardingBtnSub}>Register</Text>
+                <Text style={styles.onboardingBtnText}>New</Text>
+                <Text style={styles.onboardingBtnSub}>Patient Reg.</Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.onboardingBtn, { backgroundColor: '#059669' }]}
-              onPress={() => {
-                // Open patient search directly
-                setIsSearching(true);
-                setActiveTab("Patients");
-              }}
+              onPress={() => router.push({ pathname: "/add-followup", params: { searchMode: 'phone' } })}
             >
               <View style={styles.onboardingIconBox}>
                 <Ionicons name="repeat" size={22} color="white" />
               </View>
               <View>
-                <Text style={styles.onboardingBtnText}>Old Patient</Text>
-                <Text style={styles.onboardingBtnSub}>Followup</Text>
+                <Text style={styles.onboardingBtnText}>Old </Text>
+                <Text style={styles.onboardingBtnSub}>Patient Followup</Text>
               </View>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            style={[styles.onboardingBtn, { backgroundColor: '#6366F1', marginTop: 10 }]}
-            onPress={() => router.push("/start-campaign")}
+            style={[styles.onboardingBtn, { backgroundColor: '#7C3AED', marginTop: 10 }]}
+            onPress={() => router.push("/today-appointments")}
           >
             <View style={styles.onboardingIconBox}>
-              <Ionicons name="megaphone-outline" size={22} color="white" />
+              <Ionicons name="list" size={22} color="white" />
             </View>
             <View>
-              <Text style={styles.onboardingBtnText}>Bulk Patient Campaign</Text>
-              <Text style={styles.onboardingBtnSub}>Mass Messaging & Health Alerts</Text>
+              <Text style={styles.onboardingBtnText}>Today Queue List</Text>
+              <Text style={styles.onboardingBtnSub}>Live Patient Appointments</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -324,13 +267,9 @@ export default function Index() {
               <Ionicons name="time" size={24} color="#EA580C" />
               <Text style={styles.actionText}>Schedule</Text>
             </TouchableOpacity>
-            {/* <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/today-appointments")}>
-              <Ionicons name="list" size={24} color="#7C3AED" />
-              <Text style={styles.actionText}>Queue Rep.</Text>
-            </TouchableOpacity> */}
-            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/settings")}>
-              <Ionicons name="settings" size={24} color="#64748B" />
-              <Text style={styles.actionText}>Settings</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/start-campaign")}>
+              <Ionicons name="megaphone-outline" size={24} color="#6366F1" />
+              <Text style={styles.actionText}>Bulk Campaign</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -530,327 +469,51 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "white",
-  },
-  header: {
-    backgroundColor: "#0284C7",
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 5,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  headerBrand: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  logoBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 15,
-    height: 45,
-  },
-  searchInput: {
-    flex: 1,
-    color: "white",
-    fontSize: 18,
-    fontWeight: "500",
-  },
-  headerIcons: {
-    flexDirection: "row",
-  },
-  headerBtn: {
-    padding: 8,
-    marginLeft: 5,
-  },
-  tabs: {
-    backgroundColor: "#0284C7",
-    flexDirection: "row",
-    paddingTop: 5,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 15,
-    alignItems: "center",
-    borderBottomWidth: 3,
-    borderBottomColor: "transparent",
-  },
-  activeTab: {
-    borderBottomColor: "white",
-  },
-  tabText: {
-    color: "rgba(255,255,255,0.7)",
-    fontWeight: "700",
-    fontSize: 13,
-  },
-  activeTabText: {
-    color: "white",
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 100,
-  },
-  list: {
-    paddingVertical: 10,
-  },
-  listItem: {
-    flexDirection: "row",
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  avatar: {
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
-  itemContent: {
-    flex: 1,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E2E8F0",
-    paddingBottom: 12,
-  },
-  itemHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
+  container: { flex: 1, backgroundColor: "white" },
+  header: { backgroundColor: "#0284C7", paddingHorizontal: 15, paddingTop: 15, paddingBottom: 5, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  headerBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logoBadge: { width: 32, height: 32, borderRadius: 8, backgroundColor: "white", justifyContent: "center", alignItems: "center" },
+  headerTitle: { color: "white", fontSize: 20, fontWeight: "700", letterSpacing: -0.5 },
+  searchBar: { flex: 1, flexDirection: "row", alignItems: "center", gap: 15, height: 45 },
+  searchInput: { flex: 1, color: "white", fontSize: 18, fontWeight: "500" },
+  headerIcons: { flexDirection: "row" },
+  headerBtn: { padding: 8, marginLeft: 5 },
+  tabs: { backgroundColor: "#0284C7", flexDirection: "row", paddingTop: 5 },
+  tab: { flex: 1, paddingVertical: 15, alignItems: "center", borderBottomWidth: 3, borderBottomColor: "transparent" },
+  activeTab: { borderBottomColor: "white" },
+  tabText: { color: "rgba(255,255,255,0.7)", fontWeight: "700", fontSize: 13 },
+  activeTabText: { color: "white" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 100 },
+  listItem: { flexDirection: "row", paddingHorizontal: 15, paddingVertical: 12, alignItems: "center" },
+  itemContent: { flex: 1, borderBottomWidth: 0.5, borderBottomColor: "#E2E8F0", paddingBottom: 12 },
+  itemHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   itemName: { fontSize: 16, fontWeight: "700", color: "#1E293B" },
   itemSub: { fontSize: 14, color: "#64748B", marginTop: 2 },
   itemAddress: { fontSize: 12, color: "#94A3B8", marginTop: 2 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   ageTag: { fontSize: 11, fontWeight: "700", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   avatarCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: "center", alignItems: "center", marginRight: 15 },
-  itemTime: {
-    fontSize: 12,
-    color: "#64748B",
-  },
-  itemSubtext: {
-    fontSize: 14,
-    color: "#64748B",
-  },
-  badge: {
-    backgroundColor: "#059669",
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    color: "white",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  statusSuccess: {
-    color: "#059669",
-  },
-  statusPending: {
-    color: "#D97706",
-  },
-  homeContainer: {
-    flex: 1,
-    padding: 15,
-  },
-  statusBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 15,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 10,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  statusTime: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  emptyText: {
-    color: "#94A3B8",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  debugText: {
-    color: "#94A3B8",
-    fontSize: 12,
-    marginTop: 5,
-    textAlign: "center",
-    paddingHorizontal: 40,
-  },
-  retryBtn: {
-    marginTop: 20,
-    backgroundColor: "#0284C7",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryBtnText: {
-    color: "white",
-    fontWeight: "700",
-  },
-  fab: {
-    position: "absolute",
-    bottom: 25,
-    right: 25,
-    backgroundColor: "#059669",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  calendarContainer: {
-    backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-  },
-  dateHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: "#F8FAFC",
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-  },
-  dateHeaderText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#475569",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  homeContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 15,
-  },
-  statCard: {
-    width: (width - 55) / 2,
-    padding: 15,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  statIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#1E293B",
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 2,
-  },
-  chartSection: {
-    marginTop: 25,
-    backgroundColor: "white",
-    padding: 15,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1E293B",
-    marginBottom: 15,
-  },
-  quickActions: {
-    marginTop: 25,
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  actionBtn: {
-    flex: 1,
-    backgroundColor: "white",
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    gap: 8,
-  },
-  actionText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#475569",
-  },
-
-  // Onboarding Hub Styles
-  onboardingCard: {
-    backgroundColor: "white",
-    padding: 15,
-    borderRadius: 20,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    marginBottom: 25
-  },
+  itemSubtext: { fontSize: 14, color: "#64748B" },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  statusText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
+  emptyText: { color: "#94A3B8", fontSize: 16, fontWeight: "600" },
+  fab: { position: "absolute", bottom: 25, right: 25, backgroundColor: "#059669", width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center", elevation: 5, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
+  calendarContainer: { backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#E2E8F0" },
+  dateHeader: { paddingHorizontal: 20, paddingVertical: 12, backgroundColor: "#F8FAFC", borderTopWidth: 1, borderTopColor: "#E2E8F0" },
+  dateHeaderText: { fontSize: 14, fontWeight: "700", color: "#475569", textTransform: "uppercase", letterSpacing: 0.5 },
+  homeContainer: { flex: 1, padding: 20 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 15 },
+  statCard: { width: (width - 55) / 2, padding: 15, borderRadius: 16, borderWidth: 1, borderColor: "#E2E8F0" },
+  statIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", marginBottom: 10 },
+  statValue: { fontSize: 24, fontWeight: "700", color: "#1E293B" },
+  statLabel: { fontSize: 12, color: "#64748B", marginTop: 2 },
+  chartSection: { marginTop: 25, backgroundColor: "white", padding: 15, borderRadius: 16, borderWidth: 1, borderColor: "#E2E8F0" },
+  sectionTitle: { fontSize: 15, fontWeight: "700", color: "#1E293B", marginBottom: 15 },
+  quickActions: { marginTop: 25 },
+  actionRow: { flexDirection: "row", gap: 12 },
+  actionBtn: { flex: 1, backgroundColor: "white", padding: 15, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#E2E8F0", gap: 8 },
+  actionText: { fontSize: 12, fontWeight: "600", color: "#475569" },
+  onboardingCard: { backgroundColor: "white", padding: 15, borderRadius: 20, elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, borderWidth: 1, borderColor: "#E2E8F0", marginBottom: 25 },
   onboardingHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 5 },
   onboardingTitle: { fontSize: 16, fontWeight: "800", color: "#1E293B" },
   onboardingSub: { fontSize: 12, color: "#64748B", marginBottom: 15 },

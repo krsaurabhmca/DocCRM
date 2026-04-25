@@ -27,10 +27,11 @@ const API_KEY = Config.API_KEY;
 
 export default function AddFollowup() {
   const router = useRouter();
-  const { patientId, patientName } = useLocalSearchParams();
+  const { patientId, patientName, searchMode } = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [keyboardMode, setKeyboardMode] = useState<'phone' | 'text'>(searchMode === 'phone' ? 'phone' : 'text');
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [form, setForm] = useState({
     followup_date: "",
@@ -173,14 +174,34 @@ export default function AddFollowup() {
         <View style={styles.section}>
           {!selectedPatient ? (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Patient Search *</Text>
+              <View style={styles.searchHeader}>
+                <Text style={styles.label}>Patient Search *</Text>
+                <View style={styles.keyboardToggles}>
+                  <TouchableOpacity 
+                    onPress={() => setKeyboardMode('phone')}
+                    style={[styles.miniToggle, keyboardMode === 'phone' && styles.miniToggleActive]}
+                  >
+                    <Ionicons name="call" size={14} color={keyboardMode === 'phone' ? 'white' : '#64748B'} />
+                    <Text style={[styles.miniToggleText, keyboardMode === 'phone' && styles.miniToggleActiveText]}>Phone</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => setKeyboardMode('text')}
+                    style={[styles.miniToggle, keyboardMode === 'text' && styles.miniToggleActive]}
+                  >
+                    <Ionicons name="person" size={14} color={keyboardMode === 'text' ? 'white' : '#64748B'} />
+                    <Text style={[styles.miniToggleText, keyboardMode === 'text' && styles.miniToggleActiveText]}>Name</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
               <View style={styles.inputWrapper}>
                 <Ionicons name="search" size={20} color="#64748B" />
                 <TextInput 
                   style={styles.input} 
-                  placeholder="Type name or phone..."
+                  placeholder={keyboardMode === 'phone' ? "Search by 10-digit mobile..." : "Search by patient name..."}
                   value={search}
                   onChangeText={setSearch}
+                  keyboardType={keyboardMode === 'phone' ? "phone-pad" : "default"}
+                  autoFocus={true}
                 />
               </View>
               <View style={styles.patientList}>
@@ -408,5 +429,11 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: "#EA580C", width: "100%", flexDirection: "row", justifyContent: "center", alignItems: "center", paddingVertical: 18, borderRadius: 16, elevation: 4, gap: 12 },
   disabledBtn: { backgroundColor: "#94A3B8" },
   saveBtnText: { color: "white", fontSize: 18, fontWeight: "800" },
-  note: { textAlign: "center", color: "#94A3B8", fontSize: 12, marginTop: 15 }
+  note: { textAlign: "center", color: "#94A3B8", fontSize: 12, marginTop: 15 },
+  searchHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  keyboardToggles: { flexDirection: 'row', gap: 6 },
+  miniToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
+  miniToggleActive: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
+  miniToggleText: { fontSize: 10, fontWeight: '700', color: '#64748B' },
+  miniToggleActiveText: { color: 'white' },
 });

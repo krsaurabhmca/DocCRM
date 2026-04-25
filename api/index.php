@@ -254,9 +254,11 @@ switch ($action) {
 
                 // Auto-add consultation fee to revenue if provided (New Patient)
                 $fee = isset($input['fee']) ? (float)$input['fee'] : 0;
-                if ($id == 0 && $fee > 0) {
+                $is_today = isset($input['is_today']) && $input['is_today'] == 1;
+                
+                if ($id == 0 && ($fee > 0 || $is_today)) {
                     $today = date('Y-m-d');
-                    $type = mysqli_real_escape_string($conn, $input['followup_type'] ?? 'New Visit');
+                    $type = mysqli_real_escape_string($conn, $input['followup_type'] ?? ($is_today ? 'Today Visit' : 'New Visit'));
                     mysqli_query($conn, "INSERT INTO followups (patient_id, followup_date, followup_type, fee, notes, status) 
                                        VALUES ($patient_id, '$today', '$type', $fee, 'Automatic entry from registration', 'Completed')");
                 }

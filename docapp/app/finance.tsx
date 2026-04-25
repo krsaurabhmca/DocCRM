@@ -19,8 +19,10 @@ import { PieChart } from "react-native-chart-kit";
 import { Theme } from "../styles/Theme";
 import { GlobalStyles } from "../styles/GlobalStyles";
 
-const API_BASE = "http://192.168.1.15/doccrm/api/index.php";
-const API_KEY = "DOC_CRM_API_SECRET_2026";
+import { Config } from "../Config";
+
+const API_BASE = Config.API_BASE;
+const API_KEY = Config.API_KEY;
 const screenWidth = Dimensions.get("window").width;
 
 export default function FinancePage() {
