@@ -616,11 +616,13 @@ if ($action) {
                 $mediaUrl = $base_url . $mediaUrl;
             }
 
-            $to = $row['phone'];
-            $type = strtolower($template['content_type']);
+            $to = mysqli_real_escape_string($conn, $row['phone']);
+            $type = mysqli_real_escape_string($conn, strtolower($template['content_type']));
+            $v_esc = mysqli_real_escape_string($conn, $variables);
+            $m_esc = mysqli_real_escape_string($conn, $mediaUrl);
             
             $q_sql = "INSERT INTO message_queue (to_number, template_name, variables, header_type, media_url, scheduled_at) 
-                      VALUES ('$to', 'generic_update', '$variables', '$type', '$mediaUrl', '$scheduled_at')";
+                      VALUES ('$to', 'generic_update', '$v_esc', '$type', '$m_esc', '$scheduled_at')";
             mysqli_query($conn, $q_sql);
             $count++;
         }
