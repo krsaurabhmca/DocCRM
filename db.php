@@ -282,14 +282,14 @@ $part3_default = "*$clinic_name*\n$clinic_addr";
 
 // 1. Greeting Message
 $check_greet = mysqli_query($conn, "SELECT id FROM templates WHERE slug = 'greeting'");
-if (mysqli_num_rows($check_greet) == 0) {
+if ($check_greet && mysqli_num_rows($check_greet) == 0) {
     mysqli_query($conn, "INSERT INTO templates (slug, name, content_type, content_part1, content_part2, content_part3, is_default) 
     VALUES ('greeting', 'New Patient Greeting', 'Image', 'Dear #Patient Name#', 'Welcome to our clinic. We are happy to serve you.', '$part3_default', 1)");
 }
 
 // 2. Appointment Message
 $check_app = mysqli_query($conn, "SELECT id FROM templates WHERE slug = 'appointment'");
-if (mysqli_num_rows($check_app) == 0) {
+if ($check_app && mysqli_num_rows($check_app) == 0) {
     mysqli_query($conn, "INSERT INTO templates (slug, name, content_type, content_part1, content_part2, content_part3, is_default) 
     VALUES ('appointment', 'Appointment Confirmation', 'Image', 'Dear #Patient Name#', 'Your appointment has been confirmed. Please visit on time.', '$part3_default', 0)");
 }
@@ -298,19 +298,19 @@ if (mysqli_num_rows($check_app) == 0) {
 $check_p1 = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'content_part1'");
 if ($check_p1 && mysqli_num_rows($check_p1) == 0) {
     // Rename old content to content_part1
-    mysqli_query($conn, "ALTER TABLE templates CHANGE content content_part1 TEXT NOT NULL");
+    @mysqli_query($conn, "ALTER TABLE templates CHANGE content content_part1 TEXT NOT NULL");
     // Add part 2 and 3
-    mysqli_query($conn, "ALTER TABLE templates ADD COLUMN content_part2 TEXT NULL AFTER content_part1");
-    mysqli_query($conn, "ALTER TABLE templates ADD COLUMN content_part3 TEXT NULL AFTER content_part2");
+    @mysqli_query($conn, "ALTER TABLE templates ADD COLUMN content_part2 TEXT NULL AFTER content_part1");
+    @mysqli_query($conn, "ALTER TABLE templates ADD COLUMN content_part3 TEXT NULL AFTER content_part2");
     // Remove Video from ENUM
-    mysqli_query($conn, "ALTER TABLE templates MODIFY content_type ENUM('Text', 'Image') DEFAULT 'Text'");
+    @mysqli_query($conn, "ALTER TABLE templates MODIFY content_type ENUM('Text', 'Image') DEFAULT 'Text'");
 }
 
 // Add age_unit column to patients if missing
 $check_unit = mysqli_query($conn, "SHOW COLUMNS FROM patients LIKE 'age_unit'");
 if ($check_unit && mysqli_num_rows($check_unit) == 0) {
     mysqli_query($conn, "ALTER TABLE patients ADD COLUMN age_unit ENUM('Y', 'M', 'D') DEFAULT 'Y' AFTER age");
-} else {
+} else if ($check_unit) {
     // If it exists, update the enum definition to Y, M, D
     mysqli_query($conn, "ALTER TABLE patients MODIFY COLUMN age_unit ENUM('Y', 'M', 'D') DEFAULT 'Y'");
 }
