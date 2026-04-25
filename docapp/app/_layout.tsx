@@ -41,13 +41,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isReady) return;
 
-    const inAuthGroup = segments[0] === "login" || segments[0] === "signup";
+    const inAuthGroup = segments[0] === "login";
 
     if (!isAuthenticated && !inAuthGroup) {
       // Redirect to login if not authenticated
       router.replace("/login");
     } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to home if authenticated but trying to access login/signup
+      // Redirect to home if authenticated but trying to access login
       router.replace("/");
     }
   }, [isAuthenticated, segments, isReady]);
