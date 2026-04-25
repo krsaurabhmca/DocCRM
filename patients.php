@@ -71,11 +71,11 @@ $categories_list = mysqli_query($conn, "SELECT * FROM categories ORDER BY name A
                 </tr>
             </thead>
             <tbody>
-                <?php while($row = mysqli_fetch_assoc($patients)): 
+                <?php if($patients): while($row = mysqli_fetch_assoc($patients)): 
                     $p_id = $row['id'];
                     $c_res = mysqli_query($conn, "SELECT c.name FROM categories c JOIN patient_categories pc ON c.id = pc.category_id WHERE pc.patient_id = $p_id");
                     $cats = [];
-                    while($c = mysqli_fetch_assoc($c_res)){ $cats[] = $c['name']; }
+                    if($c_res){ while($c = mysqli_fetch_assoc($c_res)){ $cats[] = $c['name']; } }
                     
                     $initials = strtoupper(substr($row['name'], 0, 1));
                     $gender_icon = ($row['gender'] == 'Female') ? 'venus' : 'mars';
@@ -122,8 +122,8 @@ $categories_list = mysqli_query($conn, "SELECT * FROM categories ORDER BY name A
                         </div>
                     </td>
                 </tr>
-                <?php endwhile; ?>
-                <?php if(mysqli_num_rows($patients) == 0): ?>
+                <?php endwhile; endif; ?>
+                <?php if(!$patients || mysqli_num_rows($patients) == 0): ?>
                 <tr><td colspan="5" style="text-align: center; padding: 60px;">
                     <i class="fas fa-users-slash" style="font-size: 40px; color: #CBD5E1; margin-bottom: 15px; display: block;"></i>
                     <p class="text-muted">No patients found matching your search.</p>

@@ -333,3 +333,9 @@ if ($check_doc_q && mysqli_num_rows($check_doc_q) == 0) {
     @mysqli_query($conn, "ALTER TABLE doctors ADD COLUMN qualification VARCHAR(255) AFTER specialization");
     @mysqli_query($conn, "ALTER TABLE doctors ADD COLUMN experience INT DEFAULT 0 AFTER qualification");
 }
+
+// Helper for safe fetching
+function safe_fetch_assoc($query_result) {
+    if (!$query_result) return null;
+    return mysqli_fetch_assoc($query_result);
+}

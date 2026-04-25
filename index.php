@@ -3,10 +3,10 @@ $page_title = 'Dashboard';
 require_once 'components/header.php';
 
 // Fetch stats
-$patients_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients"))['cnt'];
-$pending_docs = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM reminders WHERE status = 'Pending'"))['cnt'];
-$scheduled_followups = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE status = 'Scheduled'"))['cnt'];
-$active_campaigns = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM campaigns WHERE status IN ('Scheduled', 'Processing')"))['cnt'];
+$patients_count = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients"))['cnt'] ?? 0;
+$pending_docs = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM reminders WHERE status = 'Pending'"))['cnt'] ?? 0;
+$scheduled_followups = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE status = 'Scheduled'"))['cnt'] ?? 0;
+$active_campaigns = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM campaigns WHERE status IN ('Scheduled', 'Processing')"))['cnt'] ?? 0;
 
 // Update overdue docs automatically
 mysqli_query($conn, "UPDATE reminders SET status = 'Overdue' WHERE status = 'Pending' AND due_date < CURDATE()");
@@ -15,7 +15,7 @@ mysqli_query($conn, "UPDATE reminders SET status = 'Overdue' WHERE status = 'Pen
 $recent_patients = mysqli_query($conn, "SELECT * FROM patients ORDER BY id DESC LIMIT 5");
 
 // Delivery Report Stats
-$delivery_stats = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total, SUM(CASE WHEN status='Sent' THEN 1 ELSE 0 END) as sent, SUM(CASE WHEN status='Failed' THEN 1 ELSE 0 END) as failed FROM message_logs"));
+$delivery_stats = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total, SUM(CASE WHEN status='Sent' THEN 1 ELSE 0 END) as sent, SUM(CASE WHEN status='Failed' THEN 1 ELSE 0 END) as failed FROM message_logs"));
 ?>
 
 <div class="d-flex justify-between align-center mb-4">
