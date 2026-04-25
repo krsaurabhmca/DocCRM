@@ -19,6 +19,7 @@ import { useRouter, Stack, useFocusEffect } from "expo-router";
 import { Calendar } from "react-native-calendars";
 import { LineChart } from "react-native-chart-kit";
 import { Dimensions } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Config } from "../Config";
 
@@ -32,6 +33,24 @@ type TabType = "Home" | "Patients" | "Reminders";
 export default function Index() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("Home");
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Logout", 
+          style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.clear();
+            router.replace("/login");
+          }
+        }
+      ]
+    );
+  };
   const [data, setData] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -398,6 +417,9 @@ export default function Index() {
               <Text style={styles.headerTitle}>{activeTab === "Reminders" ? "Daily Reminders" : "DocCRM"}</Text>
             </View>
             <View style={styles.headerIcons}>
+              <TouchableOpacity style={styles.headerBtn} onPress={handleLogout}>
+                <Ionicons name="log-out-outline" size={24} color="white" />
+              </TouchableOpacity>
               <TouchableOpacity style={styles.headerBtn} onPress={() => setIsSearching(true)}>
                 <Ionicons name="search-outline" size={24} color="white" />
               </TouchableOpacity>

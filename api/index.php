@@ -209,6 +209,47 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
 
 if ($action) {
     switch ($action) {
+        case 'send_otp':
+            $phone = mysqli_real_escape_string($conn, $_POST['phone'] ?? '');
+            if (!$phone) {
+                echo json_encode(['success' => false, 'message' => 'Phone number required']);
+                break;
+            }
+
+            $otp = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+            mysqli_query($conn, "INSERT INTO login_otps (phone, otp) VALUES ('$phone', '$otp')");
+
+            // Send via WhatsApp
+            $params = ["Login OTP", "Your login OTP for DocCRM is $otp. Please do not share it with anyone.", "DocCRM Security"];
+            $res = send_aoc_whatsapp($phone, '', $params); // empty template uses default fallback
+
+            echo json_encode(['success' => true, 'message' => 'OTP sent successfully']);
+            break;
+
+        case 'verify_otp':
+            $phone = mysqli_real_escape_string($conn, $_POST['phone'] ?? '');
+            $otp = mysqli_real_escape_string($conn, $_POST['otp'] ?? '');
+
+            if (!$phone || !$otp) {
+                echo json_encode(['success' => false, 'message' => 'Phone and OTP required']);
+                break;
+            }
+
+            $result = mysqli_query($conn, "SELECT id FROM login_otps WHERE phone = '$phone' AND otp = '$otp' AND status = 'Pending' AND created_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY id DESC LIMIT 1");
+            if ($row = mysqli_fetch_assoc($result)) {
+                $id = $row['id'];
+                mysqli_query($conn, "UPDATE login_otps SET status = 'Verified' WHERE id = $id");
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Login successful',
+                    'token' => base64_encode($phone),
+                    'phone' => $phone
+                ]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Invalid or expired OTP']);
+            }
+            break;
         case 'get_stats':
             $patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients"))['cnt'];
             $campaigns = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM campaigns WHERE status IN ('Scheduled', 'Processing')"))['cnt'];

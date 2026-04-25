@@ -154,6 +154,13 @@ $tables = [
         email VARCHAR(255),
         is_active TINYINT(1) DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )",
+    "CREATE TABLE IF NOT EXISTS login_otps (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        phone VARCHAR(20) NOT NULL,
+        otp VARCHAR(10) NOT NULL,
+        status ENUM('Pending', 'Verified', 'Expired') DEFAULT 'Pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )"
 ];
 
