@@ -19,14 +19,19 @@ $received_key = $_SERVER['HTTP_X_API_KEY'] ?? $_REQUEST['api_key'] ?? '';
 
 // Handle cases where headers might be prefixed differently in some environments
 if (!$received_key) {
-    $headers = getallheaders();
-    $received_key = $headers['X-API-KEY'] ?? $headers['x-api-key'] ?? '';
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        $received_key = $headers['X-API-KEY'] ?? $headers['x-api-key'] ?? '';
+    }
 }
 
-if ($received_key !== $api_key) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized API Access']);
-    exit;
+// Bypass security for internal scripts (like cron.php)
+if (!defined('INTERNAL_ACCESS')) {
+    if ($received_key !== $api_key) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized API Access']);
+        exit;
+    }
 }
 
 $action = $_GET['action'] ?? '';

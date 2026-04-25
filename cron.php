@@ -4,6 +4,7 @@
  * Run this every minute via crontab: * * * * * php /path/to/doccrm/cron.php
  */
 
+define('INTERNAL_ACCESS', true);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/api/index.php'; // Reuse send_aoc_whatsapp function
 
