@@ -258,8 +258,13 @@ if ($check_mq && mysqli_num_rows($check_mq) == 0) {
     )");
 }
 $check_slug = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'slug'");
-if ($check_slug && mysqli_num_rows($check_slug) == 0) {
-    mysqli_query($conn, "ALTER TABLE templates ADD COLUMN slug VARCHAR(50) UNIQUE NULL AFTER id");
+if ($check_slug && mysqli_num_rows($check_slug) > 0) {
+    mysqli_query($conn, "ALTER TABLE templates CHANGE COLUMN slug aoc_template_name VARCHAR(50) NULL");
+} else {
+    $check_aoc = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'aoc_template_name'");
+    if ($check_aoc && mysqli_num_rows($check_aoc) == 0) {
+        mysqli_query($conn, "ALTER TABLE templates ADD COLUMN aoc_template_name VARCHAR(50) NULL AFTER id");
+    }
 }
 
 // Safer check for settings
