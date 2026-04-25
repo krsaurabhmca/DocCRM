@@ -31,7 +31,8 @@ export default function WhatsAppSettings() {
     clinic_address: "",
     whatsapp_header_image: "",
     welcome_template: "",
-    reminder_template: ""
+    reminder_template: "",
+    whatsapp_default_template: ""
   });
 
   useEffect(() => {
@@ -174,6 +175,17 @@ export default function WhatsAppSettings() {
               placeholder="e.g. appointment_reminder"
               value={settings.reminder_template}
               onChangeText={(t) => setSettings({ ...settings, reminder_template: t })}
+            />
+          </View>
+
+          <Text style={[styles.label, { marginTop: 20, color: Theme.colors.primary }]}>Global Default Template Name (MANDATORY)</Text>
+          <View style={[styles.inputWrapper, { borderColor: Theme.colors.primary }]}>
+            <Ionicons name="flash-outline" size={20} color={Theme.colors.primary} />
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. info_update_43"
+              value={settings.whatsapp_default_template}
+              onChangeText={(t) => setSettings({ ...settings, whatsapp_default_template: t })}
             />
           </View>
         </View>

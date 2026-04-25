@@ -37,12 +37,12 @@ if (!defined('INTERNAL_ACCESS')) {
 $action = $_GET['action'] ?? '';
 
 // AOC Portal WhatsApp Helper
-function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none', $mediaUrl = '')
+function old_send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none', $mediaUrl = '')
 {
     global $conn;
 
     // Fetch Settings
-    $res = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('whatsapp_enabled', 'whatsapp_api_key', 'whatsapp_from_number', 'clinic_name', 'clinic_address', 'whatsapp_header_image')");
+    $res = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('whatsapp_enabled', 'whatsapp_api_key', 'whatsapp_from_number', 'clinic_name', 'clinic_address', 'whatsapp_header_image', 'whatsapp_default_template')");
     $settings = [];
     while ($r = mysqli_fetch_assoc($res))
         $settings[$r['setting_key']] = $r['setting_value'];
@@ -52,6 +52,11 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
 
     $apiKey = $settings['whatsapp_api_key'] ?? '';
     $from = $settings['whatsapp_from_number'] ?? '';
+    $defaultTpl = $settings['whatsapp_default_template'] ?? 'info_update_43';
+    
+    // Use default if no template name provided
+    if (!$templateName) $templateName = $defaultTpl;
+
     $clinicInfo = ($settings['clinic_name'] ?? '') . " " . ($settings['clinic_address'] ?? '');
     $headerImage = $settings['whatsapp_header_image'] ?? '';
 
@@ -140,6 +145,169 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
     return [
         'success' => ($httpCode >= 200 && $httpCode < 300),
         'response' => $response
+    ];
+}
+
+function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none', $mediaUrl = '')
+{
+    global $conn;
+
+    // 🔹 Fetch Settings
+    $res = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings 
+        WHERE setting_key IN (
+            'whatsapp_enabled', 
+            'whatsapp_api_key', 
+            'whatsapp_from_number', 
+            'clinic_name', 
+            'clinic_address', 
+            'whatsapp_header_image'
+        )");
+
+    $settings = [];
+    while ($r = mysqli_fetch_assoc($res)) {
+        $settings[$r['setting_key']] = $r['setting_value'];
+    }
+
+    if (($settings['whatsapp_enabled'] ?? '0') !== '1') {
+        return ['success' => false, 'error' => 'WhatsApp disabled'];
+    }
+
+    $apiKey = $settings['whatsapp_api_key'] ?? '';
+    $from = $settings['whatsapp_from_number'] ?? '';
+    $clinicInfo = trim(($settings['clinic_name'] ?? '') . " " . ($settings['clinic_address'] ?? ''));
+    $headerImage = $settings['whatsapp_header_image'] ?? '';
+
+    if (!$apiKey || !$from) {
+        return ['success' => false, 'error' => 'Missing API key or sender'];
+    }
+
+    // 🔹 Clean Phone Number
+    $to = preg_replace('/[^0-9]/', '', $to);
+    if (strlen($to) == 10) {
+        $to = '+91' . $to;
+    } else {
+        $to = '+' . ltrim($to, '+');
+    }
+
+    // 🔹 Ensure Params (exact 3 variables)
+    if (!is_array($params)) {
+        $params = [];
+    }
+
+    $params = array_values($params);
+    $params = array_pad($params, 3, '');
+    $params[2] = $clinicInfo;
+
+    // 🔹 Default Header Image
+    if ($headerType === 'none' && !empty($headerImage)) {
+        $headerType = 'image';
+        $mediaUrl = $headerImage;
+    }
+
+    // 🔹 Build Components
+    $components = [
+        "body" => [
+            "params" => $params
+        ]
+    ];
+
+    if ($headerType !== 'none' && !empty($mediaUrl)) {
+
+        if (!filter_var($mediaUrl, FILTER_VALIDATE_URL)) {
+            return ['success' => false, 'error' => 'Invalid media URL'];
+        }
+
+        if ($headerType === 'image') {
+            $components["header"] = [
+                "type" => "image",
+                "image" => ["link" => $mediaUrl]
+            ];
+        } elseif ($headerType === 'video') {
+            $components["header"] = [
+                "type" => "video",
+                "video" => ["link" => $mediaUrl]
+            ];
+        } elseif ($headerType === 'document') {
+            $components["header"] = [
+                "type" => "document",
+                "document" => [
+                    "link" => $mediaUrl,
+                    "filename" => "Document"
+                ]
+            ];
+        }
+    }
+
+    // 🔹 Payload
+    $payload = [
+        "from" => $from,
+        "to" => $to,
+        "templateName" => $templateName,
+        "type" => "template",
+        "components" => $components,
+        "campaignName" => "DocCRM_" . date('Ymd_His')
+    ];
+
+    $url = "https://api.aoc-portal.com/v1/whatsapp";
+
+    // 🔹 CURL Request
+    $ch = curl_init($url);
+
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_HTTPHEADER => [
+            "Content-Type: application/json",
+            "apikey: $apiKey"
+        ],
+        CURLOPT_TIMEOUT => 30
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    // 🔹 CURL Error Handling
+    if (curl_errno($ch)) {
+        return [
+            'success' => false,
+            'error' => curl_error($ch)
+        ];
+    }
+
+    curl_close($ch);
+
+    // 🔹 Decode Response
+    $resData = json_decode($response, true);
+
+    $success = ($httpCode >= 200 && $httpCode < 300);
+
+    // 🔹 Debug Log (VERY IMPORTANT)
+    file_put_contents(
+        "whatsapp_log.txt",
+        date('Y-m-d H:i:s') . "\n" .
+        "Payload: " . json_encode($payload) . "\n" .
+        "Response: " . $response . "\n\n",
+        FILE_APPEND
+    );
+
+    // 🔹 Safe Patient Lookup
+    $phone = mysqli_real_escape_string($conn, substr($to, -10));
+    $p_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM patients WHERE phone LIKE '%$phone%'"));
+
+    if ($p_res) {
+        $p_id = $p_res['id'];
+        $msg = mysqli_real_escape_string($conn, json_encode($payload));
+        $status = $success ? 'Sent' : 'Failed';
+
+        mysqli_query($conn, "INSERT INTO message_logs (patient_id, message, status) 
+                            VALUES ($p_id, '$msg', '$status')");
+    }
+
+    return [
+        'success' => $success,
+        'httpCode' => $httpCode,
+        'response' => $resData ?: $response
     ];
 }
 
@@ -635,7 +803,8 @@ if ($action) {
                 $v_esc = mysqli_real_escape_string($conn, $variables);
                 $m_esc = mysqli_real_escape_string($conn, $mediaUrl);
 
-                $tpl_name = mysqli_real_escape_string($conn, $template['aoc_template_name'] ?: 'generic_update');
+                $defaultTpl = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'whatsapp_default_template'"))['setting_value'] ?? 'info_update_43';
+                $tpl_name = mysqli_real_escape_string($conn, $template['aoc_template_name'] ?: $defaultTpl);
                 $q_sql = "INSERT INTO message_queue (to_number, template_name, variables, header_type, media_url, scheduled_at) 
                       VALUES ('$to', '$tpl_name', '$v_esc', '$type', '$m_esc', '$scheduled_at')";
                 mysqli_query($conn, $q_sql);
