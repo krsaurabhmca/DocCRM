@@ -589,8 +589,8 @@ if ($action) {
             exit;
         }
 
-        $clinic_name = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name'"))['setting_value'] ?? '';
-        $clinic_address = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address'"))['setting_value'] ?? '';
+        $clinic_name = safe_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name'"))['setting_value'] ?? '';
+        $clinic_address = safe_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address'"))['setting_value'] ?? '';
         $clinic_info = "*$clinic_name*\n$clinic_address";
 
         $sql = "SELECT DISTINCT p.* FROM patients p 
