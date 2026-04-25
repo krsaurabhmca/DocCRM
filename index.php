@@ -19,8 +19,55 @@ $delivery_stats = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
 ?>
 
 <div class="d-flex justify-between align-center mb-4">
-    <h2>Dashboard Overview</h2>
+    <div>
+        <h2 class="mb-1">Doctor's Control Center</h2>
+        <p class="text-muted" style="font-size: 12px;">Welcome back! Here's your clinic overview for today.</p>
+    </div>
     <a href="backup.php" class="btn btn-secondary"><i class="fas fa-database"></i> Backup Database</a>
+</div>
+
+<!-- Onboarding Hub -->
+<div class="hub-grid">
+    <div class="hub-card">
+        <div class="hub-header">
+            <i class="fas fa-hospital-user"></i>
+            <span class="hub-title">Doctor's Counter Check-in</span>
+        </div>
+        <p class="hub-sub">Start a session for the next patient in line</p>
+        <div class="hub-actions">
+            <a href="patient_form.php" class="hub-btn hub-btn-primary">
+                <div class="hub-btn-icon"><i class="fas fa-user-plus"></i></div>
+                <div class="hub-btn-text">
+                    <span class="hub-btn-label">New</span>
+                    <span class="hub-btn-desc">Registration</span>
+                </div>
+            </a>
+            <a href="followup_form.php" class="hub-btn hub-btn-success">
+                <div class="hub-btn-icon"><i class="fas fa-sync"></i></div>
+                <div class="hub-btn-text">
+                    <span class="hub-btn-label">Old</span>
+                    <span class="hub-btn-desc">Follow-up</span>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="hub-card">
+        <div class="hub-header">
+            <i class="fas fa-users-viewfinder"></i>
+            <span class="hub-title">Today's Appointment Queue</span>
+        </div>
+        <p class="hub-sub">Manage live appointments and waiting list</p>
+        <div class="hub-actions">
+            <a href="queue.php" class="hub-btn hub-btn-purple">
+                <div class="hub-btn-icon"><i class="fas fa-list-ol"></i></div>
+                <div class="hub-btn-text">
+                    <span class="hub-btn-label">Live Queue List</span>
+                    <span class="hub-btn-desc">Token & Serial Tracking</span>
+                </div>
+            </a>
+        </div>
+    </div>
 </div>
 
 <div class="stats-grid">
