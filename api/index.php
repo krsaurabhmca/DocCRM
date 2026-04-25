@@ -41,111 +41,169 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
 {
     global $conn;
 
-    // Fetch Settings
-    $res = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('whatsapp_enabled', 'whatsapp_api_key', 'whatsapp_from_number', 'clinic_name', 'clinic_address', 'whatsapp_header_image', 'whatsapp_default_template')");
-    $settings = [];
-    while ($r = mysqli_fetch_assoc($res))
-        $settings[$r['setting_key']] = $r['setting_value'];
+    // 🔹 Fetch Settings
+    $res = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings 
+        WHERE setting_key IN (
+            'whatsapp_enabled', 
+            'whatsapp_api_key', 
+            'whatsapp_from_number', 
+            'clinic_name', 
+            'clinic_address', 
+            'whatsapp_header_image',
+            'whatsapp_default_template'
+        )");
 
-    if (($settings['whatsapp_enabled'] ?? '0') !== '1')
-        return false;
+    $settings = [];
+    while ($r = mysqli_fetch_assoc($res)) {
+        $settings[$r['setting_key']] = $r['setting_value'];
+    }
+
+    if (($settings['whatsapp_enabled'] ?? '0') !== '1') {
+        return ['success' => false, 'error' => 'WhatsApp disabled'];
+    }
 
     $apiKey = $settings['whatsapp_api_key'] ?? '';
     $from = $settings['whatsapp_from_number'] ?? '';
-    $templateName = $settings['whatsapp_default_template'] ?? 'info_update_43';
-
-    // Use default if no template name provided
-    //if (!$templateName)
-    //  $templateName = $defaultTpl;
-
-    $clinicInfo = ($settings['clinic_name'] ?? '') . " " . ($settings['clinic_address'] ?? '');
+    $defaultTpl = $settings['whatsapp_default_template'] ?? 'info_update_43';
+    $clinicInfo = trim(($settings['clinic_name'] ?? '') . " " . ($settings['clinic_address'] ?? ''));
     $headerImage = $settings['whatsapp_header_image'] ?? '';
 
-    if (!$apiKey || !$from)
-        return false;
-
-    // Clean number (ensure +countrycode)
-    $to = preg_replace('/[^0-9]/', '', $to);
-    if (strlen($to) == 10)
-        $to = '+91' . $to; // Default to India if no code
-    else if (substr($to, 0, 1) !== '+')
-        $to = '+' . $to;
-
-    $url = "https://api.aoc-portal.com/v1/whatsapp"; // Standardized endpoint from docs
-
-    // Auto-append Clinic Info as variable 3 if not already set or if params has space
-    if (!is_array($params))
-        $params = [];
-    if (count($params) < 3) {
-        // Ensure params has exactly 3 elements for the new template structure
-        // {{1}} = Patient, {{2}} = Message, {{3}} = Clinic
-        if (count($params) == 0) {
-            $params[0] = "Patient";
-        }
-        if (count($params) == 1) {
-            // If only name provided, we need a default message for {{2}}
-            $params[1] = "Greetings from our clinic.";
-        }
-        $params[2] = $clinicInfo;
+    // 🔹 Fallback to default template if none provided
+    if (empty($templateName)) {
+        $templateName = $defaultTpl;
     }
 
-    // Default to Image Header if set in settings and not overridden
-    if ($headerType === 'none' && $headerImage) {
+    if (!$apiKey || !$from) {
+        return ['success' => false, 'error' => 'Missing API key or sender'];
+    }
+
+    // 🔹 Clean Phone Number
+    $to = preg_replace('/[^0-9]/', '', $to);
+    if (strlen($to) == 10) {
+        $to = '+91' . $to;
+    } else {
+        $to = '+' . ltrim($to, '+');
+    }
+
+    // 🔹 Ensure Params (exact 3 variables)
+    if (!is_array($params)) {
+        $params = [];
+    }
+
+    $params = array_values($params);
+    $params = array_pad($params, 3, '');
+    $params[2] = $clinicInfo;
+
+    // 🔹 Default Header Image
+    if ($headerType === 'none' && !empty($headerImage)) {
         $headerType = 'image';
         $mediaUrl = $headerImage;
     }
 
+    // 🔹 Build Components
     $components = [
-        "body" => ["params" => array_values($params)]
+        "body" => [
+            "params" => $params
+        ]
     ];
 
-    if ($headerType !== 'none' && $mediaUrl) {
+    if ($headerType !== 'none' && !empty($mediaUrl)) {
+
+        if (!filter_var($mediaUrl, FILTER_VALIDATE_URL)) {
+            return ['success' => false, 'error' => 'Invalid media URL'];
+        }
+
         if ($headerType === 'image') {
-            $components["header"] = ["type" => "image", "image" => ["link" => $mediaUrl]];
-        } else if ($headerType === 'video') {
-            $components["header"] = ["type" => "video", "video" => ["link" => $mediaUrl]];
-        } else if ($headerType === 'document') {
-            $components["header"] = ["type" => "document", "document" => ["link" => $mediaUrl, "filename" => "Document"]];
+            $components["header"] = [
+                "type" => "image",
+                "image" => ["link" => $mediaUrl]
+            ];
+        } elseif ($headerType === 'video') {
+            $components["header"] = [
+                "type" => "video",
+                "video" => ["link" => $mediaUrl]
+            ];
+        } elseif ($headerType === 'document') {
+            $components["header"] = [
+                "type" => "document",
+                "document" => [
+                    "link" => $mediaUrl,
+                    "filename" => "Document"
+                ]
+            ];
         }
     }
 
+    // 🔹 Payload
     $payload = [
         "from" => $from,
         "to" => $to,
         "templateName" => $templateName,
         "type" => "template",
         "components" => $components,
-        "campaignName" => "DocCRM_Auto" . date('Y-m-d H:i:s')
+        "campaignName" => "DocCRM_" . date('Ymd_His')
     ];
 
+    $url = "https://api.aoc-portal.com/v1/whatsapp";
+
+    // 🔹 CURL Request
     $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'apikey: ' . $apiKey
+
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_HTTPHEADER => [
+            "Content-Type: application/json",
+            "apikey: $apiKey"
+        ],
+        CURLOPT_TIMEOUT => 30
     ]);
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    // 🔹 CURL Error Handling
+    if (curl_errno($ch)) {
+        return [
+            'success' => false,
+            'error' => curl_error($ch)
+        ];
+    }
+
     curl_close($ch);
 
-    // Log the message
-    $status = ($httpCode >= 200 && $httpCode < 300) ? 'Sent' : 'Failed';
-    $msg = mysqli_real_escape_string($conn, json_encode($payload));
-    $err = mysqli_real_escape_string($conn, $response);
+    // 🔹 Decode Response
+    $resData = json_decode($response, true);
 
-    // Find patient_id for logging
-    $p_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM patients WHERE phone LIKE '%" . substr($to, -10) . "%'"));
+    $success = ($httpCode >= 200 && $httpCode < 300);
+
+    // 🔹 Debug Log (VERY IMPORTANT)
+    file_put_contents(
+        "whatsapp_log.txt",
+        date('Y-m-d H:i:s') . "\n" .
+        "Payload: " . json_encode($payload) . "\n" .
+        "Response: " . $response . "\n\n",
+        FILE_APPEND
+    );
+
+    // 🔹 Safe Patient Lookup
+    $phone = mysqli_real_escape_string($conn, substr($to, -10));
+    $p_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM patients WHERE phone LIKE '%$phone%'"));
+
     if ($p_res) {
         $p_id = $p_res['id'];
-        mysqli_query($conn, "INSERT INTO message_logs (patient_id, message, status) VALUES ($p_id, '$msg', '$status')");
+        $msg = mysqli_real_escape_string($conn, json_encode($payload));
+        $status = $success ? 'Sent' : 'Failed';
+
+        mysqli_query($conn, "INSERT INTO message_logs (patient_id, message, status) 
+                            VALUES ($p_id, '$msg', '$status')");
     }
 
     return [
-        'success' => ($httpCode >= 200 && $httpCode < 300),
-        'response' => $response
+        'success' => $success,
+        'httpCode' => $httpCode,
+        'response' => $resData ?: $response
     ];
 }
 
