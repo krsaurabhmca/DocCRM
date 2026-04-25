@@ -62,18 +62,22 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
     $url = "https://api.aoc-portal.com/v1/whatsapp"; // Standardized endpoint from docs
     
     // Auto-append Clinic Info as variable 3 if not already set or if params has space
+    if (!is_array($params)) $params = [];
     if (count($params) < 3) {
         // Ensure params has exactly 3 elements for the new template structure
         // {{1}} = Patient, {{2}} = Message, {{3}} = Clinic
+        if (count($params) == 0) {
+             $params[0] = "Patient";
+        }
         if (count($params) == 1) {
              // If only name provided, we need a default message for {{2}}
-             $params[] = "Greetings from our clinic."; 
+             $params[1] = "Greetings from our clinic."; 
         }
         $params[2] = $clinicInfo;
     }
 
     $components = [
-        "body" => ["params" => $params]
+        "body" => ["params" => array_values($params)]
     ];
 
     // Default to Image Header if set in settings and not overridden
@@ -129,7 +133,8 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
     return $status === 'Sent';
 }
 
-switch ($action) {
+if ($action) {
+    switch ($action) {
     case 'get_stats':
         $patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients"))['cnt'];
         $campaigns = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM campaigns WHERE status IN ('Scheduled', 'Processing')"))['cnt'];
@@ -799,4 +804,6 @@ switch ($action) {
     default:
         echo json_encode(['success' => false, 'message' => 'Invalid action']);
         break;
+    }
 }
+mysqli_close($conn);
