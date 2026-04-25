@@ -11,7 +11,7 @@ import {
   Image,
   StatusBar
 } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Theme } from "../styles/Theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +21,7 @@ const { width } = Dimensions.get("window");
 
 export default function StartCampaign() {
   const router = useRouter();
+  const { templateId } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [launching, setLaunching] = useState(false);
@@ -47,7 +48,13 @@ export default function StartCampaign() {
       const tempJson = await tempRes.json();
       
       if (catJson.success) setCategories(catJson.data);
-      if (tempJson.success) setTemplates(tempJson.data);
+      if (tempJson.success) {
+        setTemplates(tempJson.data);
+        if (templateId) {
+          const preSelected = tempJson.data.find((t: any) => t.id.toString() === templateId.toString());
+          if (preSelected) setSelectedTemplate(preSelected);
+        }
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -66,11 +73,11 @@ export default function StartCampaign() {
   const fetchPatientCount = async () => {
     try {
       const ids = selectedCategoryIds.join(",");
-      const res = await fetch(`${Config.API_BASE}?action=get_patients&category_id=${ids}`, {
+      const res = await fetch(`${Config.API_BASE}?action=get_campaign_reach&category_ids=${ids}`, {
         headers: { "X-API-KEY": Config.API_KEY }
       });
       const json = await res.json();
-      if (json.success) setPatientCount(json.data.length);
+      if (json.success) setPatientCount(json.count);
     } catch (error) {
       console.error(error);
     }
@@ -199,66 +206,84 @@ export default function StartCampaign() {
               );
             })}
           </View>
-
+          
           {/* Step 2: Template Selection */}
           <View style={[styles.stepHeader, { marginTop: 35 }]}>
             <View style={[styles.stepNumber, { backgroundColor: '#8B5CF6' }]}><Text style={styles.stepNumberText}>2</Text></View>
-            <Text style={styles.stepTitle}>Choose Message Blueprint</Text>
+            <Text style={styles.stepTitle}>Message Details</Text>
           </View>
 
-          <View style={styles.templateGrid}>
-            {templates.map((temp) => {
-              const isSelected = selectedTemplate?.id === temp.id;
-              return (
+          {!selectedTemplate ? (
+            <View style={styles.templateList}>
+              {templates.map((temp) => (
                 <TouchableOpacity 
                   key={temp.id} 
-                  style={[styles.tempCard, isSelected && styles.tempCardActive]}
+                  style={styles.templatePickerItem}
                   onPress={() => setSelectedTemplate(temp)}
                 >
-                  <View style={styles.tempHeader}>
-                    <View style={[styles.tempIconBox, { backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : '#F1F5F9' }]}>
-                      <Ionicons 
-                        name={temp.content_type === "Image" ? "image" : temp.content_type === "Video" ? "videocam" : "mail"} 
-                        size={18} 
-                        color={isSelected ? "white" : Theme.colors.primary} 
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.tempName, isSelected && styles.textWhite]}>{temp.name}</Text>
-                      <Text style={[styles.tempTag, isSelected && { color: 'rgba(255,255,255,0.7)' }]}>{temp.content_type || 'WhatsApp Official'}</Text>
-                    </View>
-                    {isSelected && <Ionicons name="checkmark-circle" size={24} color="white" />}
+                  <View style={styles.tempPickerIcon}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color="#8B5CF6" />
                   </View>
-                  {!isSelected && (
-                    <View style={styles.tempPreview}>
-                      <Text style={styles.tempMsg} numberOfLines={1}>{temp.content}</Text>
-                    </View>
-                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.templatePickerName}>{temp.name}</Text>
+                    <Text style={styles.templatePickerSub} numberOfLines={1}>{temp.content_part1}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
                 </TouchableOpacity>
-              );
-            })}
-          </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.selectedTemplateCard}>
+              <View style={styles.selectedTemplateHeader}>
+                <View style={styles.selectedTemplateInfo}>
+                  <Ionicons name="checkmark-circle" size={24} color="#059669" />
+                  <View>
+                    <Text style={styles.selectedTemplateLabel}>SELECTED MESSAGE</Text>
+                    <Text style={styles.selectedTemplateName}>{selectedTemplate.name}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity 
+                  style={styles.changeBtn} 
+                  onPress={() => setSelectedTemplate(null)}
+                >
+                  <Text style={styles.changeBtnText}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Step 3: Simulation */}
           {selectedTemplate && (
             <View style={styles.fullPreviewSection}>
-              <View style={styles.stepHeader}>
+              <View style={[styles.stepHeader, { marginTop: 35 }]}>
                 <View style={[styles.stepNumber, { backgroundColor: '#10B981' }]}><Text style={styles.stepNumberText}>3</Text></View>
-                <Text style={styles.stepTitle}>Final Delivery Preview</Text>
+                <Text style={styles.stepTitle}>Delivery Preview</Text>
               </View>
               
               <View style={styles.simulationWindow}>
                 <View style={styles.whatsappBubble}>
                   {selectedTemplate.media_url ? (
-                    <Image source={{ uri: selectedTemplate.media_url }} style={styles.bubbleImage} />
+                    <Image 
+                      source={{ uri: `${Config.API_BASE.replace('api/index.php', '')}${selectedTemplate.media_url}` }} 
+                      style={styles.bubbleImage} 
+                    />
                   ) : null}
-                  <Text style={styles.bubbleTitle}>{selectedTemplate.name}</Text>
-                  <Text style={styles.bubbleBody}>{selectedTemplate.content}</Text>
-                  <View style={styles.bubbleFooter}>
-                    <Text style={styles.bubbleTime}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                    <Ionicons name="checkmark-done" size={16} color="#4FC3F7" />
+                  <View style={styles.bubbleContent}>
+                    <Text style={styles.bubblePart1}>
+                      {selectedTemplate.content_part1.replace(/#Patient Name#/g, "Sanjay Kumar")}
+                    </Text>
+                    <Text style={styles.bubblePart2}>{selectedTemplate.content_part2}</Text>
+                    {selectedTemplate.content_part3 ? (
+                      <Text style={styles.bubblePart3}>{selectedTemplate.content_part3}</Text>
+                    ) : null}
+                    
+                    <View style={styles.bubbleFooter}>
+                      <Text style={styles.bubbleTime}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                      <Ionicons name="checkmark-done" size={16} color="#4FC3F7" />
+                    </View>
                   </View>
                 </View>
+                <Text style={styles.previewNote}>* Above is a simulation of the actual message.</Text>
               </View>
             </View>
           )}
@@ -318,25 +343,31 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 14, fontWeight: '700', color: '#475569' },
   chipTextActive: { color: 'white' },
 
-  templateGrid: { gap: 12 },
-  tempCard: { backgroundColor: 'white', borderRadius: 24, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', elevation: 2 },
-  tempCardActive: { backgroundColor: '#8B5CF6', borderColor: '#8B5CF6', elevation: 10, shadowColor: '#8B5CF6', shadowOpacity: 0.2 },
-  tempHeader: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-  tempIconBox: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  tempName: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
-  tempTag: { fontSize: 10, color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase' },
-  tempPreview: { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 12, marginTop: 15 },
-  tempMsg: { fontSize: 12, color: '#64748B', fontStyle: 'italic' },
-  textWhite: { color: 'white' },
+  templateList: { gap: 10 },
+  templatePickerItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0', gap: 15 },
+  tempPickerIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F3FF', justifyContent: 'center', alignItems: 'center' },
+  templatePickerName: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
+  templatePickerSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
 
-  fullPreviewSection: { marginTop: 15 },
-  simulationWindow: { padding: 20, backgroundColor: '#E5DDD5', borderRadius: 25, marginTop: 5 },
-  whatsappBubble: { backgroundColor: '#DCF8C6', borderRadius: 15, padding: 8, alignSelf: 'flex-start', maxWidth: '100%', elevation: 3 },
-  bubbleImage: { width: width - 90, height: (width - 90) * 0.5, borderRadius: 10, marginBottom: 8 },
-  bubbleTitle: { fontWeight: '900', color: '#075E54', fontSize: 14, marginBottom: 4 },
-  bubbleBody: { color: '#1E293B', fontSize: 14, lineHeight: 20 },
+  selectedTemplateCard: { backgroundColor: '#F0FDF4', borderRadius: 20, padding: 15, borderWidth: 1, borderColor: '#DCFCE7' },
+  selectedTemplateHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  selectedTemplateInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  selectedTemplateLabel: { fontSize: 9, fontWeight: '800', color: '#059669', letterSpacing: 0.5 },
+  selectedTemplateName: { fontSize: 16, fontWeight: '700', color: '#064E3B' },
+  changeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: 'white', borderWidth: 1, borderColor: '#DCFCE7' },
+  changeBtnText: { fontSize: 12, fontWeight: '700', color: '#059669' },
+
+  fullPreviewSection: { marginTop: 0 },
+  simulationWindow: { padding: 15, backgroundColor: '#E5DDD5', borderRadius: 25, marginTop: 5 },
+  whatsappBubble: { backgroundColor: 'white', borderRadius: 12, alignSelf: 'flex-start', maxWidth: '100%', elevation: 2, overflow: 'hidden' },
+  bubbleImage: { width: width - 80, height: (width - 80) * 0.5, backgroundColor: '#F1F5F9' },
+  bubbleContent: { padding: 10 },
+  bubblePart1: { color: '#1E293B', fontSize: 14, fontWeight: '600' },
+  bubblePart2: { color: '#1E293B', fontSize: 14, marginTop: 8 },
+  bubblePart3: { color: '#64748B', fontSize: 12, marginTop: 8, fontStyle: 'italic' },
   bubbleFooter: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 4, marginTop: 5 },
   bubbleTime: { fontSize: 10, color: '#667781' },
+  previewNote: { fontSize: 10, color: '#64748B', textAlign: 'center', marginTop: 10, fontStyle: 'italic' },
 
   actionArea: { padding: 25, alignItems: 'center' },
   launchBtn: { backgroundColor: Theme.colors.primary, width: "100%", flexDirection: "row", justifyContent: "center", alignItems: "center", paddingVertical: 20, borderRadius: 25, elevation: 12, gap: 12 },

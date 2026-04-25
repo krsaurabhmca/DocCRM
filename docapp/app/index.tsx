@@ -42,7 +42,8 @@ export default function Index() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [markedDates, setMarkedDates] = useState<any>({});
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     setError(null);
     let action = "";
     if (activeTab === "Patients") action = "get_patients";
@@ -73,7 +74,13 @@ export default function Index() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [activeTab, searchQuery, selectedDate]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   const fetchMarkedDates = async () => {
     try {
@@ -134,11 +141,6 @@ export default function Index() {
       ]
     );
   };
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-  }, [activeTab, searchQuery, selectedDate]);
 
   const onRefresh = () => {
     setRefreshing(true);

@@ -31,8 +31,13 @@ if (!isset($_SESSION['admin_id'])) {
             <?php echo isset($page_title) ? $page_title : 'Dashboard'; ?>
         </div>
         <div class="user-profile">
-            <span>Admin User</span>
-            <div class="avatar">A</div>
+            <div class="user-info">
+                <span>Admin User</span>
+                <div class="avatar">A</div>
+            </div>
+            <a href="logout.php" class="logout-link" title="Logout">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
         </div>
     </header>
     

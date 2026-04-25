@@ -59,23 +59,49 @@ export default function ManageCategories() {
     ]);
   };
 
+  const handleLongPress = (item: any) => {
+    Alert.alert(
+      item.name,
+      "Manage this category",
+      [
+        {
+          text: "View Patients",
+          onPress: () => router.push({ pathname: `/category/${item.id}`, params: { name: item.name } })
+        },
+        {
+          text: "Edit Category Name",
+          onPress: () => router.push({ pathname: "/add-category", params: { id: item.id, name: item.name } })
+        },
+        {
+          text: "Delete Group",
+          style: "destructive",
+          onPress: () => deleteCategory(item.id)
+        },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity 
       style={styles.listItem}
-      onPress={() => router.push({ pathname: "/add-category", params: { id: item.id, name: item.name } })}
+      onPress={() => router.push({ pathname: `/category/${item.id}`, params: { name: item.name } })}
+      onLongPress={() => handleLongPress(item)}
+      activeOpacity={0.7}
     >
-      <View style={[styles.avatar, { backgroundColor: "#ECFDF5" }]}>
-        <Ionicons name="pricetag" size={24} color="#059669" />
+      <View style={[styles.avatar, { backgroundColor: "#F0F9FF" }]}>
+        <Ionicons name="layers" size={22} color="#0284C7" />
       </View>
       <View style={styles.itemContent}>
         <View style={styles.itemHeader}>
           <Text style={styles.itemName}>{item.name}</Text>
-          <TouchableOpacity onPress={() => deleteCategory(item.id)}>
-            <Ionicons name="trash-outline" size={20} color="#94A3B8" />
-          </TouchableOpacity>
+          <View style={styles.countBadge}>
+            <Text style={styles.countText}>{item.patient_count || 0}</Text>
+          </View>
         </View>
-        <Text style={styles.itemSubtext}>{item.patient_count || 0} Patients Assigned</Text>
+        <Text style={styles.itemSubtext}>Tap to view list • Long press to manage</Text>
       </View>
+      <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
     </TouchableOpacity>
   );
 
@@ -109,11 +135,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "white" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 50 },
   list: { paddingVertical: 10 },
-  listItem: { flexDirection: "row", paddingHorizontal: 15, paddingVertical: 12, alignItems: "center" },
-  avatar: { width: 50, height: 50, borderRadius: 25, justifyContent: "center", alignItems: "center", marginRight: 15 },
-  itemContent: { flex: 1, borderBottomWidth: 0.5, borderBottomColor: "#E2E8F0", paddingBottom: 12 },
+  listItem: { flexDirection: "row", paddingHorizontal: 20, paddingVertical: 18, alignItems: "center", backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#F1F5F9" },
+  avatar: { width: 48, height: 48, borderRadius: 12, justifyContent: "center", alignItems: "center", marginRight: 15 },
+  itemContent: { flex: 1 },
   itemHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  itemName: { fontSize: 16, fontWeight: "600", color: "#1E293B" },
-  itemSubtext: { fontSize: 13, color: "#64748B", marginTop: 4 },
-  fab: { position: "absolute", bottom: 30, right: 30, backgroundColor: "#059669", width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center", elevation: 5 },
+  itemName: { fontSize: 16, fontWeight: "700", color: "#1E293B" },
+  countBadge: { backgroundColor: "#F0F9FF", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  countText: { fontSize: 12, fontWeight: "800", color: "#0284C7" },
+  itemSubtext: { fontSize: 12, color: "#64748B", marginTop: 4 },
+  fab: { position: "absolute", bottom: 30, right: 30, backgroundColor: "#0284C7", width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center", elevation: 8, shadowColor: "#0284C7", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
 });

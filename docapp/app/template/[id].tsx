@@ -108,6 +108,14 @@ export default function TemplateDetails() {
       )}
 
       <View style={styles.footer}>
+        <TouchableOpacity 
+          style={styles.sendBtn} 
+          onPress={() => router.push({ pathname: "/start-campaign", params: { templateId: template.id } })}
+        >
+          <Ionicons name="paper-plane" size={20} color="white" />
+          <Text style={styles.btnText}>Send Campaign</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.editBtn} onPress={() => router.push({ pathname: "/add-template", params: { id: template.id } })}>
           <Ionicons name="create-outline" size={20} color="white" />
           <Text style={styles.btnText}>Edit Template</Text>
@@ -215,7 +223,18 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 20,
-    marginTop: 10,
+    marginTop: 20,
+    gap: 12,
+  },
+  sendBtn: {
+    backgroundColor: "#059669", // Success Green
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 15,
+    borderRadius: 12,
+    gap: 10,
+    elevation: 4,
   },
   editBtn: {
     backgroundColor: "#0284C7",
@@ -225,6 +244,8 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 12,
     gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
   },
   btnText: {
     color: "white",

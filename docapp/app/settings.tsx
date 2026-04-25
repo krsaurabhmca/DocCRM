@@ -56,8 +56,28 @@ export default function Settings() {
         { id: "api", name: "System Connection", icon: "radio-outline", color: "#64748B", route: null },
         { id: "about", name: "About & Support", icon: "information-circle-outline", color: "#64748B", route: "/about" },
       ]
+    },
+    {
+      title: "🚪 Account",
+      data: [
+        { id: "logout", name: "Sign Out", icon: "log-out-outline", color: Theme.colors.danger, route: "LOGOUT" },
+      ]
     }
   ];
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to log out of DocCRM?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Log Out", style: "destructive", onPress: () => {
+          Alert.alert("Signed Out", "You have been logged out successfully.");
+          // In a real app, clear tokens and navigate to login
+        }}
+      ]
+    );
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -71,7 +91,15 @@ export default function Settings() {
               <TouchableOpacity 
                 key={item.id} 
                 style={[styles.item, i === section.data.length - 1 && { borderBottomWidth: 0 }]}
-                onPress={() => item.route ? router.push(item.route as any) : Alert.alert("DocCRM", `${item.name} coming soon!`)}
+                onPress={() => {
+                  if (item.route === "LOGOUT") {
+                    handleLogout();
+                  } else if (item.route) {
+                    router.push(item.route as any);
+                  } else {
+                    Alert.alert("DocCRM", `${item.name} coming soon!`);
+                  }
+                }}
               >
                 <View style={styles.itemLeft}>
                   <View style={[styles.iconBox, { backgroundColor: item.color + '15' }]}>

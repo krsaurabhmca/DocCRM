@@ -75,10 +75,91 @@ $end_time = isset($time_parts[1]) ? date("H:i", strtotime($time_parts[1])) : "20
 </div>
 
 <?php if(isset($_GET['success'])): ?>
-    <div class="badge badge-submitted mb-4" style="width: 100%; padding: 12px; font-size: 14px;">
-        <i class="fas fa-check-circle"></i> Branding and settings updated successfully!
+    <div id="successToast" class="premium-toast animate-slide-in">
+        <div class="toast-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="toast-content">
+            <h4>Settings Updated!</h4>
+            <p>Clinic branding and operational defaults have been saved successfully.</p>
+        </div>
+        <button onclick="document.getElementById('successToast').style.display='none'" class="toast-close">&times;</button>
     </div>
+    <script>
+        setTimeout(() => {
+            const toast = document.getElementById('successToast');
+            if(toast) {
+                toast.classList.add('animate-slide-out');
+                setTimeout(() => toast.style.display = 'none', 500);
+            }
+        }, 5000);
+    </script>
 <?php endif; ?>
+
+<style>
+.premium-toast {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-left: 5px solid #10B981;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    padding: 16px 24px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 9999;
+    max-width: 400px;
+    border: 1px solid rgba(16, 185, 129, 0.1);
+}
+.toast-icon {
+    width: 40px;
+    height: 40px;
+    background: #ECFDF5;
+    color: #10B981;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+.toast-content h4 {
+    margin: 0;
+    font-size: 15px;
+    color: #1E293B;
+    font-weight: 700;
+}
+.toast-content p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #64748B;
+}
+.toast-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #94A3B8;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 10px;
+}
+.animate-slide-in {
+    animation: slideInRight 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+.animate-slide-out {
+    animation: slideOutRight 0.5s ease-in forwards;
+}
+@keyframes slideInRight {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideOutRight {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(120%); opacity: 0; }
+}
+</style>
 
 <form method="POST" enctype="multipart/form-data">
     <div class="stats-grid" style="grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
@@ -227,30 +308,44 @@ $end_time = isset($time_parts[1]) ? date("H:i", strtotime($time_parts[1])) : "20
                     </div>
                 </div>
             </div>
+
+            <div class="card" style="border-radius: 16px;">
+                <div class="card-header" style="background: #F8FAFC;">
+                    <h3 class="card-title"><i class="fas fa-print" style="color: var(--secondary);"></i> Prescription Settings</h3>
+                </div>
+                <div style="padding: 24px;">
+                    <p class="text-muted mb-3" style="font-size: 11px;">Configure layout settings for printed prescriptions.</p>
+                    <div class="form-group">
+                        <label class="form-label">Top Margin (for Letterhead) - in pixels</label>
+                        <div style="position: relative;">
+                            <i class="fas fa-arrows-alt-v" style="position: absolute; left: 12px; top: 12px; color: var(--text-muted); z-index: 1;"></i>
+                            <input type="number" name="settings[prescription_top_margin]" class="form-control" style="padding-left: 35px; border-radius: 8px;" value="<?= htmlspecialchars($settings['prescription_top_margin'] ?? '150') ?>" placeholder="e.g. 150">
+                        </div>
+                        <small class="text-muted" style="font-size: 10px;">Adjust this to leave space for your clinic's pre-printed letterhead.</small>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="d-flex justify-end mt-4" style="padding-bottom: 50px;">
-        <button type="submit" name="update_settings" class="btn btn-primary" style="padding: 14px 40px; border-radius: 12px; font-weight: 700; font-size: 15px; box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.2);">
-            <i class="fas fa-save"></i> Save All Changes
+        <button type="submit" name="update_settings" class="btn btn-primary" style="padding: 16px 48px; border-radius: 14px; font-weight: 800; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.3); letter-spacing: 0.5px; transition: all 0.3s ease;">
+            <i class="fas fa-save" style="margin-right: 10px;"></i> Update Clinic Branding
         </button>
     </div>
 </form>
 
 <style>
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 20px -5px rgba(2, 132, 199, 0.4);
+}
 .justify-end { justify-content: flex-end; }
 .mt-4 { margin-top: 24px; }
 input[type="time"]::-webkit-calendar-picker-indicator {
     filter: invert(0.5);
     cursor: pointer;
 }
-</style>
-
-<?php require_once 'components/footer.php'; ?>
-
-<style>
-.justify-end { justify-content: flex-end; }
-.mt-4 { margin-top: 24px; }
 </style>
 
 <?php require_once 'components/footer.php'; ?>

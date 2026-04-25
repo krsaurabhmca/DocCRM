@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   Text, 
   View, 
@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Alert
 } from "react-native";
-import { useRouter, Stack } from "expo-router";
+import { useRouter, Stack, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Config } from "../Config";
@@ -23,7 +23,7 @@ export default function ManageTemplates() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}?action=get_templates`, {
         headers: { "X-API-KEY": API_KEY }
@@ -38,11 +38,13 @@ export default function ManageTemplates() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   const deleteTemplate = (id: number) => {
     Alert.alert("Delete Template", "Are you sure you want to remove this message template?", [
@@ -71,19 +73,33 @@ export default function ManageTemplates() {
       </View>
       <View style={styles.itemContent}>
         <View style={styles.itemHeader}>
-          <Text style={styles.itemName}>{item.name}</Text>
-          <TouchableOpacity onPress={() => deleteTemplate(item.id)}>
-            <Ionicons name="trash-outline" size={20} color="#94A3B8" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            {(item.is_default === "1" || item.is_default === 1) && (
+              <View style={styles.defaultBadge}>
+                <Text style={styles.defaultBadgeText}>DEFAULT</Text>
+              </View>
+            )}
+          </View>
+          <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+            <TouchableOpacity onPress={() => router.push({ pathname: "/add-template", params: { id: item.id } })}>
+              <Ionicons name="create-outline" size={20} color="#0284C7" />
+            </TouchableOpacity>
+            {!item.slug && (
+              <TouchableOpacity onPress={() => deleteTemplate(item.id)}>
+                <Ionicons name="trash-outline" size={20} color="#E11D48" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-        <Text style={styles.itemSubtext} numberOfLines={1}>{item.content}</Text>
+        <Text style={styles.itemSubtext} numberOfLines={2}>{item.content_part1}</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: "Message Templates" }} />
+      <Stack.Screen options={{ title: "Saved Messages" }} />
       
       {loading ? (
         <View style={styles.center}>
@@ -118,4 +134,6 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 16, fontWeight: "600", color: "#1E293B" },
   itemSubtext: { fontSize: 13, color: "#64748B", marginTop: 4 },
   fab: { position: "absolute", bottom: 30, right: 30, backgroundColor: "#0284C7", width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center", elevation: 5 },
+  defaultBadge: { backgroundColor: "#ECFDF5", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: "#10B981" },
+  defaultBadgeText: { fontSize: 10, fontWeight: "800", color: "#059669" },
 });

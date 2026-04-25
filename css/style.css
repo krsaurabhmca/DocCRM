@@ -271,7 +271,15 @@ h2 {
 .user-profile {
     display: flex;
     align-items: center;
+    gap: 20px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
     gap: 10px;
+    padding-right: 15px;
+    border-right: 1px solid var(--border);
 }
 
 .user-profile span {
@@ -291,6 +299,20 @@ h2 {
     justify-content: center;
     font-weight: 600;
     font-size: 14px;
+}
+
+.logout-link {
+    color: var(--text-muted);
+    font-size: 18px;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logout-link:hover {
+    color: var(--danger);
+    transform: translateX(3px);
 }
 
 .content {

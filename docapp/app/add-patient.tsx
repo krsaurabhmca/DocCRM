@@ -79,7 +79,7 @@ export default function AddPatient() {
       });
       const json = await response.json();
       if (json.success) {
-        setCategories(json.data);
+        setCategories(json.data.map((c: any) => ({ ...c, id: Number(c.id) })));
       }
     } catch (error) {
       console.error(error);
@@ -103,7 +103,7 @@ export default function AddPatient() {
           gender: p.gender || "Male",
           father_name: p.father_name || "",
           address: p.address || "",
-          category_ids: p.category_ids || []
+          category_ids: (p.category_ids || []).map((cid: any) => Number(cid))
         });
       }
     } catch (error) {

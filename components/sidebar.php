@@ -44,6 +44,9 @@
             </a>
 
             <div class="nav-section mt-4">System Config</div>
+            <a href="automation.php" class="nav-item <?= $current_page == 'automation.php' ? 'active' : '' ?>">
+                <i class="fas fa-robot"></i> <span>Automation Hub</span>
+            </a>
             <a href="branding.php" class="nav-item <?= $current_page == 'branding.php' ? 'active' : '' ?>">
                 <i class="fas fa-hospital"></i> <span>Clinic Branding</span>
             </a>

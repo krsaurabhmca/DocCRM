@@ -10,7 +10,7 @@ if (isset($_POST['update_followup'])) {
     
     $sql = "UPDATE followups SET status='$status', notes='$notes' WHERE id=$fid";
     if (mysqli_query($conn, $sql)) {
-        echo "<script>window.location.href='queue.php?success=1';</script>";
+        echo "<script>window.location.href='queue.php?success=1&last_id=$fid';</script>";
         exit;
     }
 }
@@ -41,8 +41,13 @@ $pending_count = $total_queue - $completed_count;
 </div>
 
 <?php if(isset($_GET['success'])): ?>
-    <div class="badge badge-submitted mb-4" style="width: 100%; padding: 12px; font-size: 14px;">
-        <i class="fas fa-check-circle"></i> Queue status updated successfully!
+    <div class="badge badge-submitted mb-4" style="width: 100%; padding: 16px; font-size: 14px; display: flex; justify-content: space-between; align-items: center;">
+        <span><i class="fas fa-check-circle"></i> Consultation status updated successfully!</span>
+        <?php if(isset($_GET['last_id'])): ?>
+        <a href="print_prescription.php?id=<?= $_GET['last_id'] ?>" target="_blank" class="btn btn-sm" style="background: white; color: var(--primary); padding: 5px 15px; border-radius: 6px; font-weight: 700; text-decoration: none;">
+            <i class="fas fa-print"></i> Print Prescription Now
+        </a>
+        <?php endif; ?>
     </div>
 <?php endif; ?>
 
@@ -120,7 +125,14 @@ $pending_count = $total_queue - $completed_count;
                             <i class="fas fa-stethoscope"></i> Check In
                         </button>
                         <?php else: ?>
-                        <span class="text-success"><i class="fas fa-check-circle"></i> Done</span>
+                        <div class="d-flex gap-2 justify-end">
+                            <a href="print_prescription.php?id=<?= $row['id'] ?>" target="_blank" class="btn btn-sm btn-secondary" style="background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0;">
+                                <i class="fas fa-print"></i> Print
+                            </a>
+                            <span class="text-success" style="display: flex; align-items: center; font-size: 13px; font-weight: 600;">
+                                <i class="fas fa-check-circle" style="margin-right: 4px;"></i> Done
+                            </span>
+                        </div>
                         <?php endif; ?>
                     </td>
                 </tr>

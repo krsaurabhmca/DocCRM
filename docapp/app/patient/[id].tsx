@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   Text, 
   View, 
@@ -9,7 +9,7 @@ import {
   Alert,
   Linking
 } from "react-native";
-import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -23,13 +23,28 @@ export default function PatientProfile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [patient, setPatient] = useState<any>(null);
+  const [defaultMessage, setDefaultMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPatient();
-  }, [id]);
+  const fetchDefaultTemplate = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}?action=get_default_template`, {
+        headers: { "X-API-KEY": API_KEY }
+      });
+      const json = await response.json();
+      if (json.success) {
+        const t = json.data;
+        const fullMessage = [t.content_part1, t.content_part2, t.content_part3]
+          .filter(Boolean)
+          .join("\n\n");
+        setDefaultMessage(fullMessage);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
 
-  const fetchPatient = async () => {
+  const fetchPatient = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}?action=get_patient&id=${id}`, {
         headers: { "X-API-KEY": API_KEY }
@@ -43,7 +58,14 @@ export default function PatientProfile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPatient();
+      fetchDefaultTemplate();
+    }, [fetchPatient, fetchDefaultTemplate])
+  );
 
   const deletePatient = () => {
     Alert.alert("Delete Patient", "Are you sure you want to remove this patient?", [
@@ -56,6 +78,15 @@ export default function PatientProfile() {
         if (json.success) router.back();
       }}
     ]);
+  };
+
+  const openWhatsApp = () => {
+    let text = defaultMessage;
+    if (patient) {
+      text = text.replace(/#Patient Name#/g, patient.name);
+    }
+    const encoded = encodeURIComponent(text);
+    Linking.openURL(`https://wa.me/91${patient.phone}${encoded ? '?text=' + encoded : ''}`);
   };
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#0284C7" /></View>;
@@ -85,7 +116,10 @@ export default function PatientProfile() {
           <View style={[styles.actionIcon, { backgroundColor: '#F0F9FF' }]}><Ionicons name="call" size={20} color="#0284C7" /></View>
           <Text style={styles.actionLabel}>Call</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionItem} onPress={() => Linking.openURL(`https://wa.me/91${patient.phone}`)}>
+        <TouchableOpacity 
+          style={styles.actionItem} 
+          onPress={openWhatsApp}
+        >
           <View style={[styles.actionIcon, { backgroundColor: '#ECFDF5' }]}><Ionicons name="logo-whatsapp" size={20} color="#059669" /></View>
           <Text style={styles.actionLabel}>WhatsApp</Text>
         </TouchableOpacity>

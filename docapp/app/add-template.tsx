@@ -10,13 +10,15 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Switch
 } from "react-native";
 import { useRouter, Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect } from "react";
+import { Theme } from "../styles/Theme";
 
 import { Config } from "../Config";
 
@@ -30,17 +32,41 @@ export default function AddTemplate() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
-    content_type: "Text",
-    content: ""
+    content_type: "Image",
+    content_part1: "Dear Parents",
+    content_part2: "Clinic Details",
+    content_part3: "",
+    is_default: false
   });
+  const [isLocked, setIsLocked] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<any>(null);
   const [existingMedia, setExistingMedia] = useState("");
 
   useEffect(() => {
+    fetchClinicDetails();
     if (id) {
       fetchTemplateData();
     }
   }, [id]);
+
+  const fetchClinicDetails = async () => {
+    try {
+      const response = await fetch(`${API_BASE}?action=get_app_settings`, {
+        headers: { "X-API-KEY": API_KEY }
+      });
+      const json = await response.json();
+      if (json.success && !id) {
+        const name = json.data.clinic_name || "Our Clinic";
+        const addr = json.data.clinic_address || "";
+        setForm(prev => ({
+          ...prev,
+          content_part3: `*${name}*\n${addr}`.trim()
+        }));
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchTemplateData = async () => {
     try {
@@ -53,8 +79,12 @@ export default function AddTemplate() {
         setForm({
           name: t.name,
           content_type: t.content_type,
-          content: t.content
+          content_part1: t.content_part1,
+          content_part2: t.content_part2 || "",
+          content_part3: t.content_part3 || "",
+          is_default: t.is_default === "1" || t.is_default === 1
         });
+        if (t.slug) setIsLocked(true);
         if (t.media_url) {
           setExistingMedia(t.media_url);
         }
@@ -77,8 +107,13 @@ export default function AddTemplate() {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.content) {
-      Alert.alert("Error", "Please fill name and content.");
+    if (!form.name || !form.content_part2) {
+      Alert.alert("Error", "Please fill name and Message Part 2 (Mandatory).");
+      return;
+    }
+
+    if (!selectedMedia && !existingMedia) {
+      Alert.alert("Error", "Header Image is mandatory. Please select an image.");
       return;
     }
 
@@ -88,15 +123,18 @@ export default function AddTemplate() {
       if (id) formData.append("id", id as string);
       formData.append("name", form.name);
       formData.append("content_type", form.content_type);
-      formData.append("content", form.content);
+      formData.append("content_part1", form.content_part1);
+      formData.append("content_part2", form.content_part2);
+      formData.append("content_part3", form.content_part3);
+      formData.append("is_default", form.is_default ? "1" : "0");
       formData.append("existing_media", existingMedia);
 
       if (selectedMedia) {
         // @ts-ignore
         formData.append("media", {
           uri: selectedMedia.uri,
-          name: selectedMedia.fileName || (form.content_type === "Image" ? "photo.jpg" : "video.mp4"),
-          type: selectedMedia.mimeType || (form.content_type === "Image" ? "image/jpeg" : "video/mp4"),
+          name: selectedMedia.fileName || "photo.jpg",
+          type: selectedMedia.mimeType || "image/jpeg",
         });
       }
 
@@ -130,81 +168,114 @@ export default function AddTemplate() {
       style={{ flex: 1 }}
     >
       <ScrollView style={styles.container}>
-        <Stack.Screen options={{ title: id ? "Edit Template" : "New Message Template" }} />
+        <Stack.Screen options={{ title: id ? "Edit Saved Message" : "New Saved Message" }} />
 
         <View style={styles.card}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Template Name *</Text>
-            <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Message Title * {isLocked && "(System Locked)"}</Text>
+            <View style={[styles.inputWrapper, isLocked && { backgroundColor: '#F1F5F9' }]}>
               <Ionicons name="bookmark-outline" size={20} color="#64748B" />
               <TextInput
-                style={styles.input}
-                placeholder="e.g. Appointment Reminder"
+                style={[styles.input, isLocked && { color: '#64748B' }]}
+                placeholder="e.g. Appointment Greeting"
                 value={form.name}
+                editable={!isLocked}
                 onChangeText={(t) => setForm({ ...form, name: t })}
               />
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Content Type</Text>
-            <View style={styles.typeRow}>
-              {["Text", "Image", "Video"].map((t) => (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.typeBtn, form.content_type === t && styles.activeType]}
-                  onPress={() => {
-                    setForm({ ...form, content_type: t });
-                    setSelectedMedia(null);
-                  }}
-                >
-                  <Text style={[styles.typeText, form.content_type === t && styles.activeTypeText]}>{t}</Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={styles.label}>Header Image * (Mandatory)</Text>
+            <TouchableOpacity style={styles.mediaPicker} onPress={pickMedia}>
+              {selectedMedia ? (
+                <View style={styles.mediaPreview}>
+                  <Image source={{ uri: selectedMedia.uri }} style={styles.previewImg} />
+                  <TouchableOpacity style={styles.removeMedia} onPress={() => setSelectedMedia(null)}>
+                    <Ionicons name="close-circle" size={24} color="#E11D48" />
+                  </TouchableOpacity>
+                </View>
+              ) : existingMedia ? (
+                <View style={styles.mediaPreview}>
+                  <Image source={{ uri: `${Config.API_BASE.replace('api/index.php', '')}${existingMedia}` }} style={styles.previewImg} />
+                  <TouchableOpacity style={styles.removeMedia} onPress={() => setExistingMedia("")}>
+                    <Ionicons name="close-circle" size={24} color="#E11D48" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <Ionicons name="image-outline" size={30} color="#64748B" />
+                  <Text style={styles.mediaPickerText}>Select Cover Image</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.partHeader}>
+                <Text style={styles.label}>Message Part 1 {isLocked && "(Auto-filled)"}</Text>
+                <Text style={styles.counter}>{form.content_part1.length}/600</Text>
+            </View>
+            <View style={[styles.inputWrapper, isLocked && { backgroundColor: '#F1F5F9' }]}>
+              <TextInput
+                style={[styles.input, { height: 80, textAlignVertical: 'top' }, isLocked && { color: '#64748B' }]}
+                placeholder="e.g. Dear Parents"
+                multiline={true}
+                maxLength={600}
+                value={form.content_part1}
+                editable={!isLocked}
+                onChangeText={(t) => setForm({ ...form, content_part1: t })}
+              />
+            </View>
+            {isLocked && <Text style={styles.lockedHint}>#Patient Name# will be replaced automatically.</Text>}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.partHeader}>
+              <Text style={[styles.label, { color: Theme.colors.primary }]}>Message Part 2 * (MANDATORY)</Text>
+              <Text style={styles.counter}>{form.content_part2.length}/600</Text>
+            </View>
+            <View style={[styles.inputWrapper, { borderColor: Theme.colors.primary }]}>
+              <TextInput
+                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                placeholder="Clinic Details / Main Content..."
+                multiline={true}
+                maxLength={600}
+                value={form.content_part2}
+                onChangeText={(t) => setForm({ ...form, content_part2: t })}
+              />
             </View>
           </View>
 
-          {(form.content_type === "Image" || form.content_type === "Video") && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Upload {form.content_type}</Text>
-              <TouchableOpacity style={styles.mediaPicker} onPress={pickMedia}>
-                {selectedMedia ? (
-                  <View style={styles.mediaPreview}>
-                    {form.content_type === "Image" ? (
-                      <Image source={{ uri: selectedMedia.uri }} style={styles.previewImg} />
-                    ) : (
-                      <View style={styles.videoPlaceholder}>
-                        <Ionicons name="videocam" size={40} color="#0284C7" />
-                        <Text style={{ color: '#0284C7', marginTop: 5 }}>Video Selected</Text>
-                      </View>
-                    )}
-                    <TouchableOpacity style={styles.removeMedia} onPress={() => setSelectedMedia(null)}>
-                      <Ionicons name="close-circle" size={24} color="#E11D48" />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <>
-                    <Ionicons name="cloud-upload-outline" size={30} color="#64748B" />
-                    <Text style={styles.mediaPickerText}>Select {form.content_type} from Gallery</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Template Message *</Text>
-            <View style={[styles.inputWrapper, { alignItems: 'flex-start', paddingTop: 12 }]}>
-              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#64748B" style={{ marginTop: 2 }} />
+            <View style={styles.partHeader}>
+              <Text style={styles.label}>Message Part 3 {isLocked && "(Clinic Info)"}</Text>
+              <Text style={styles.counter}>{form.content_part3.length}/600</Text>
+            </View>
+            <View style={[styles.inputWrapper, isLocked && { backgroundColor: '#F1F5F9' }]}>
               <TextInput
-                style={[styles.input, { height: 120, textAlignVertical: 'top' }]}
-                placeholder="Write template content..."
+                style={[styles.input, { height: 80, textAlignVertical: 'top' }, isLocked && { color: '#64748B' }]}
+                placeholder="Closing/Footer..."
                 multiline={true}
-                numberOfLines={5}
-                value={form.content}
-                onChangeText={(t) => setForm({ ...form, content: t })}
+                maxLength={600}
+                value={form.content_part3}
+                editable={!isLocked}
+                onChangeText={(t) => setForm({ ...form, content_part3: t })}
               />
             </View>
+          </View>
+
+          <View style={styles.defaultRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.defaultTitle}>Set as Default Message</Text>
+              <Text style={styles.defaultSub}>Automatically pre-fills when opening WhatsApp for any patient.</Text>
+            </View>
+            <Switch
+              value={form.is_default}
+              onValueChange={(v) => setForm({ ...form, is_default: v })}
+              trackColor={{ false: "#CBD5E1", true: "#0284C7" }}
+              thumbColor="white"
+            />
           </View>
 
           <TouchableOpacity
@@ -217,7 +288,7 @@ export default function AddTemplate() {
             ) : (
               <>
                 <Ionicons name="save-outline" size={22} color="white" />
-                <Text style={styles.saveBtnText}>Save Template</Text>
+                <Text style={styles.saveBtnText}>Save Message</Text>
               </>
             )}
           </TouchableOpacity>
@@ -348,5 +419,41 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "700",
+  },
+  defaultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  defaultTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  defaultSub: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  partHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  counter: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#94A3B8",
+  },
+  lockedHint: {
+    fontSize: 11,
+    color: "#64748B",
+    marginTop: 5,
+    fontStyle: 'italic',
   },
 });

@@ -6,7 +6,7 @@ header('Access-Control-Allow-Headers: Content-Type, X-API-KEY');
 
 date_default_timezone_set('Asia/Kolkata');
 
-require_once '../db.php';
+require_once dirname(__DIR__) . '/db.php';
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
@@ -227,6 +227,13 @@ switch ($action) {
             $category_ids = $input['category_ids'] ?? [];
 
             if ($id == 0) {
+                // Check for Unique (Name + Mobile)
+                $check_unique = mysqli_query($conn, "SELECT id FROM patients WHERE name = '$name' AND phone = '$phone'");
+                if (mysqli_num_rows($check_unique) > 0) {
+                    echo json_encode(['success' => false, 'message' => 'Duplicate Entry: A patient with this Name and Mobile Number is already registered.']);
+                    exit;
+                }
+
                 // Check New Patient Limit
                 $max_new = (int)mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'max_new_patients'"))['setting_value'];
                 if ($max_new > 0) {
@@ -237,7 +244,19 @@ switch ($action) {
                         exit;
                     }
                 }
-                $sql = "INSERT INTO patients (name, phone, email, gender, father_name, age, age_unit, address) VALUES ('$name', '$phone', '$email', '$gender', '$father', $age, '$age_unit', '$address')";
+
+                // Generate Unique Patient ID (Mobile + Suffix 0-9)
+                $clean_phone = preg_replace('/[^0-9]/', '', $phone);
+                $check_existing = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE phone = '$phone'");
+                $count = mysqli_fetch_assoc($check_existing)['cnt'];
+                
+                if ($count >= 10) {
+                    echo json_encode(['success' => false, 'message' => 'Limit Reached: Maximum 10 patients are allowed for a single mobile number.']);
+                    exit;
+                }
+                
+                $patient_uid = $clean_phone . $count;
+                $sql = "INSERT INTO patients (patient_uid, name, phone, email, gender, father_name, age, age_unit, address) VALUES ('$patient_uid', '$name', '$phone', '$email', '$gender', '$father', $age, '$age_unit', '$address')";
             } else {
                 $sql = "UPDATE patients SET name='$name', phone='$phone', email='$email', gender='$gender', father_name='$father', age=$age, age_unit='$age_unit', address='$address' WHERE id=$id";
             }
@@ -330,6 +349,17 @@ switch ($action) {
         echo json_encode(['success' => true, 'data' => $data]);
         break;
 
+    case 'get_campaign_reach':
+        $ids = mysqli_real_escape_string($conn, $_GET['category_ids'] ?? '');
+        if (!$ids) {
+            echo json_encode(['success' => true, 'count' => 0]);
+            exit;
+        }
+        $sql = "SELECT COUNT(DISTINCT patient_id) as cnt FROM patient_categories WHERE category_id IN ($ids)";
+        $res = mysqli_fetch_assoc(mysqli_query($conn, $sql));
+        echo json_encode(['success' => true, 'count' => (int)$res['cnt']]);
+        break;
+
     case 'save_category':
         $json = file_get_contents('php://input');
         $input = json_decode($json, true);
@@ -353,7 +383,10 @@ switch ($action) {
         $id = (int)($_POST['id'] ?? 0);
         $name = mysqli_real_escape_string($conn, $_POST['name'] ?? '');
         $type = mysqli_real_escape_string($conn, $_POST['content_type'] ?? 'Text');
-        $content = mysqli_real_escape_string($conn, $_POST['content'] ?? '');
+        $part1 = mysqli_real_escape_string($conn, $_POST['content_part1'] ?? '');
+        $part2 = mysqli_real_escape_string($conn, $_POST['content_part2'] ?? '');
+        $part3 = mysqli_real_escape_string($conn, $_POST['content_part3'] ?? '');
+        $is_default = (int)($_POST['is_default'] ?? 0);
         $media_url = $_POST['existing_media'] ?? '';
 
         // Handle File Upload if exists
@@ -367,11 +400,15 @@ switch ($action) {
             }
         }
 
-        if ($name && $content) {
+        if ($name && $part1) {
+            if ($is_default == 1) {
+                mysqli_query($conn, "UPDATE templates SET is_default = 0");
+            }
+
             if ($id > 0) {
-                $sql = "UPDATE templates SET name='$name', content_type='$type', content='$content', media_url='$media_url' WHERE id=$id";
+                $sql = "UPDATE templates SET name='$name', content_type='$type', content_part1='$part1', content_part2='$part2', content_part3='$part3', media_url='$media_url', is_default=$is_default WHERE id=$id";
             } else {
-                $sql = "INSERT INTO templates (name, content_type, content, media_url) VALUES ('$name', '$type', '$content', '$media_url')";
+                $sql = "INSERT INTO templates (name, content_type, content_part1, content_part2, content_part3, media_url, is_default) VALUES ('$name', '$type', '$part1', '$part2', '$part3', '$media_url', $is_default)";
             }
             
             if (mysqli_query($conn, $sql)) {
@@ -419,6 +456,16 @@ switch ($action) {
             echo json_encode(['success' => true, 'data' => $template]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Template not found']);
+        }
+        break;
+
+    case 'get_default_template':
+        $result = mysqli_query($conn, "SELECT * FROM templates WHERE is_default = 1 LIMIT 1");
+        $template = mysqli_fetch_assoc($result);
+        if ($template) {
+            echo json_encode(['success' => true, 'data' => $template]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'No default template set']);
         }
         break;
 
@@ -518,49 +565,57 @@ switch ($action) {
 
     case 'start_campaign':
         $category_ids = $_POST['category_ids'] ?? ''; // Comma separated IDs
-        $template_id = $_POST['template_id'] ?? '';
+        $template_id = (int)($_POST['template_id'] ?? 0);
 
         if (!$category_ids || !$template_id) {
             echo json_encode(['success' => false, 'message' => 'Missing category or template']);
             exit;
         }
 
-        // Fetch Template
-        $template = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM templates WHERE id = $template_id"));
+        $template_res = mysqli_query($conn, "SELECT * FROM templates WHERE id = $template_id");
+        $template = mysqli_fetch_assoc($template_res);
         if (!$template) {
             echo json_encode(['success' => false, 'message' => 'Template not found']);
             exit;
         }
 
-        // Fetch Clinic Info for variables
         $clinic_name = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name'"))['setting_value'] ?? '';
         $clinic_address = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address'"))['setting_value'] ?? '';
-        $clinic_info = "$clinic_name\n$clinic_address";
+        $clinic_info = "*$clinic_name*\n$clinic_address";
 
-        // Fetch Unique Patients in selected Categories
-        $sql = "SELECT DISTINCT * FROM patients WHERE category_id IN ($category_ids)";
+        $sql = "SELECT DISTINCT p.* FROM patients p 
+                JOIN patient_categories pc ON p.id = pc.patient_id 
+                WHERE pc.category_id IN ($category_ids)";
         $res = mysqli_query($conn, $sql);
         $count = 0;
         
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+        $base_url = "$protocol://" . $_SERVER['HTTP_HOST'] . str_replace('api/index.php', '', $_SERVER['SCRIPT_NAME']);
+        $scheduled_at = date('Y-m-d H:i:s');
+
         while ($row = mysqli_fetch_assoc($res)) {
-            $variables = [
-                $row['name'],
-                $template['message'], // Use the template's message as variable 2 if needed, or customize
-                $clinic_info
-            ];
+            $part1 = str_replace('#Patient Name#', $row['name'], $template['content_part1']);
+            $variables = json_encode([
+                $part1,
+                $template['content_part2'],
+                $template['content_part3'] ?: $clinic_info
+            ]);
             
-            // Call the correct AOC WhatsApp helper
-            send_aoc_whatsapp(
-                $row['phone'],
-                $template['template_name'],
-                $variables,
-                $template['header_type'],
-                $template['header_url']
-            );
+            $mediaUrl = $template['media_url'];
+            if ($mediaUrl && !filter_var($mediaUrl, FILTER_VALIDATE_URL)) {
+                $mediaUrl = $base_url . $mediaUrl;
+            }
+
+            $to = $row['phone'];
+            $type = strtolower($template['content_type']);
+            
+            $q_sql = "INSERT INTO message_queue (to_number, template_name, variables, header_type, media_url, scheduled_at) 
+                      VALUES ('$to', 'generic_update', '$variables', '$type', '$mediaUrl', '$scheduled_at')";
+            mysqli_query($conn, $q_sql);
             $count++;
         }
 
-        echo json_encode(['success' => true, 'message' => "Campaign launched successfully to $count patients."]);
+        echo json_encode(['success' => true, 'message' => "Campaign queued for $count patients. It will be sent via cron job."]);
         break;
 
     case 'upload_image':
@@ -740,4 +795,3 @@ switch ($action) {
         echo json_encode(['success' => false, 'message' => 'Invalid action']);
         break;
 }
-?>

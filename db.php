@@ -84,30 +84,14 @@ $tables = [
         FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
     )",
-    "CREATE TABLE IF NOT EXISTS message_queue (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        campaign_id INT NULL,
-        patient_id INT NOT NULL,
-        message TEXT,
-        media_url VARCHAR(255) NULL,
-        scheduled_for DATETIME NOT NULL,
-        status ENUM('Pending', 'Processing', 'Sent', 'Failed') DEFAULT 'Pending',
-        retry_count INT DEFAULT 0,
-        last_error TEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE SET NULL,
-        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
-    )",
     "CREATE TABLE IF NOT EXISTS message_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
         patient_id INT NOT NULL,
-        campaign_id INT NULL,
         message TEXT,
         status ENUM('Sent', 'Failed') NOT NULL,
         error_msg TEXT NULL,
         sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
-        FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE SET NULL
+        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
     )",
     "CREATE TABLE IF NOT EXISTS reminders (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -130,14 +114,31 @@ $tables = [
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
     )",
-    "CREATE TABLE IF NOT EXISTS templates (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        content_type ENUM('Text', 'Image', 'Video') DEFAULT 'Text',
-        content TEXT NOT NULL,
-        media_url VARCHAR(255) NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )",
+    "CREATE TABLE IF NOT EXISTS templates (" .
+    "id INT AUTO_INCREMENT PRIMARY KEY, " .
+    "slug VARCHAR(50) UNIQUE NULL, " .
+    "name VARCHAR(255) NOT NULL, " .
+    "content_type ENUM('Text', 'Image') DEFAULT 'Text', " .
+    "content_part1 TEXT NOT NULL, " .
+    "content_part2 TEXT NULL, " .
+    "content_part3 TEXT NULL, " .
+    "media_url VARCHAR(255) NULL, " .
+    "is_default TINYINT(1) DEFAULT 0, " .
+    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" .
+    ")",
+    "CREATE TABLE IF NOT EXISTS message_queue (" .
+    "id INT AUTO_INCREMENT PRIMARY KEY, " .
+    "to_number VARCHAR(20) NOT NULL, " .
+    "template_name VARCHAR(100) NOT NULL, " .
+    "variables TEXT NOT NULL, " .
+    "header_type VARCHAR(20) DEFAULT 'none', " .
+    "media_url TEXT NULL, " .
+    "status ENUM('Pending', 'Processing', 'Sent', 'Failed') DEFAULT 'Pending', " .
+    "error_message TEXT NULL, " .
+    "scheduled_at DATETIME NOT NULL, " .
+    "processed_at DATETIME NULL, " .
+    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" .
+    ")",
     "CREATE TABLE IF NOT EXISTS app_settings (
         setting_key VARCHAR(100) PRIMARY KEY,
         setting_value TEXT NULL,
@@ -188,10 +189,9 @@ foreach ($tables as $sql) {
 // Seed Default Templates if empty
 $check_templates = mysqli_query($conn, "SELECT id FROM templates LIMIT 1");
 if (mysqli_num_rows($check_templates) == 0) {
-    mysqli_query($conn, "INSERT INTO templates (name, content_type, content) VALUES 
-        ('Regular Checkup Reminder', 'Text', 'Hello [Patient Name], this is a reminder for your regular health checkup. Please visit us between 10 AM to 5 PM.'),
-        ('Holiday Clinic Notice', 'Image', 'Dear Patients, please note that our clinic will be closed on [Date] due to [Holiday]. We will resume on [Next Date].'),
-        ('Exercise Guide', 'Video', 'Hi, check out this video guide for daily morning exercises to keep your heart healthy!')");
+    mysqli_query($conn, "INSERT INTO templates (name, content_type, content_part1, content_part2) VALUES 
+        ('Regular Checkup Reminder', 'Text', 'Hello [Patient Name], this is a reminder for your regular health checkup.', 'Please visit us between 10 AM to 5 PM.'),
+        ('Holiday Clinic Notice', 'Image', 'Dear Patients, please note that our clinic will be closed on [Date] due to [Holiday].', 'We will resume on [Next Date].')");
 }
 
 // Add missing columns to campaigns if it was created previously
@@ -227,6 +227,72 @@ if ($check_doc_p && mysqli_num_rows($check_doc_p) == 0) {
     mysqli_query($conn, "ALTER TABLE patients ADD COLUMN doctor_id INT NULL AFTER id");
 }
 
+// Add patient_uid column to patients if missing
+$check_uid = mysqli_query($conn, "SHOW COLUMNS FROM patients LIKE 'patient_uid'");
+if ($check_uid && mysqli_num_rows($check_uid) == 0) {
+    mysqli_query($conn, "ALTER TABLE patients ADD COLUMN patient_uid VARCHAR(100) UNIQUE NULL AFTER id");
+}
+
+// Add is_default column to templates if missing
+$check_def = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'is_default'");
+if ($check_def && mysqli_num_rows($check_def) == 0) {
+    mysqli_query($conn, "ALTER TABLE templates ADD COLUMN is_default TINYINT(1) DEFAULT 0 AFTER media_url");
+}
+
+// Migration for message_queue system
+$check_mq = mysqli_query($conn, "SHOW COLUMNS FROM message_queue LIKE 'to_number'");
+if ($check_mq && mysqli_num_rows($check_mq) == 0) {
+    mysqli_query($conn, "DROP TABLE IF EXISTS message_queue");
+    mysqli_query($conn, "CREATE TABLE message_queue (
+        id INT AUTO_INCREMENT PRIMARY KEY, 
+        to_number VARCHAR(20) NOT NULL, 
+        template_name VARCHAR(100) NOT NULL, 
+        variables TEXT NOT NULL, 
+        header_type VARCHAR(20) DEFAULT 'none', 
+        media_url TEXT NULL, 
+        status ENUM('Pending', 'Processing', 'Sent', 'Failed') DEFAULT 'Pending', 
+        error_message TEXT NULL, 
+        scheduled_at DATETIME NOT NULL, 
+        processed_at DATETIME NULL, 
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+}
+$check_slug = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'slug'");
+if ($check_slug && mysqli_num_rows($check_slug) == 0) {
+    mysqli_query($conn, "ALTER TABLE templates ADD COLUMN slug VARCHAR(50) UNIQUE NULL AFTER id");
+}
+
+// Seed locked templates
+$clinic_name = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name'"))['setting_value'] ?? "Our Clinic";
+$clinic_addr = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address'"))['setting_value'] ?? "";
+$part3_default = "*$clinic_name*\n$clinic_addr";
+
+// 1. Greeting Message
+$check_greet = mysqli_query($conn, "SELECT id FROM templates WHERE slug = 'greeting'");
+if (mysqli_num_rows($check_greet) == 0) {
+    mysqli_query($conn, "INSERT INTO templates (slug, name, content_type, content_part1, content_part2, content_part3, is_default) 
+    VALUES ('greeting', 'New Patient Greeting', 'Image', 'Dear #Patient Name#', 'Welcome to our clinic. We are happy to serve you.', '$part3_default', 1)");
+}
+
+// 2. Appointment Message
+$check_app = mysqli_query($conn, "SELECT id FROM templates WHERE slug = 'appointment'");
+if (mysqli_num_rows($check_app) == 0) {
+    mysqli_query($conn, "INSERT INTO templates (slug, name, content_type, content_part1, content_part2, content_part3, is_default) 
+    VALUES ('appointment', 'Appointment Confirmation', 'Image', 'Dear #Patient Name#', 'Your appointment has been confirmed. Please visit on time.', '$part3_default', 0)");
+}
+
+// Migration for 3-part content system
+$check_p1 = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'content_part1'");
+if ($check_p1 && mysqli_num_rows($check_p1) == 0) {
+    // Rename old content to content_part1
+    mysqli_query($conn, "ALTER TABLE templates CHANGE content content_part1 TEXT NOT NULL");
+    // Add part 2 and 3
+    mysqli_query($conn, "ALTER TABLE templates ADD COLUMN content_part2 TEXT NULL AFTER content_part1");
+    mysqli_query($conn, "ALTER TABLE templates ADD COLUMN content_part3 TEXT NULL AFTER content_part2");
+    // Remove Video from ENUM
+    mysqli_query($conn, "ALTER TABLE templates MODIFY content_type ENUM('Text', 'Image') DEFAULT 'Text'");
+}
+
 // Add age_unit column to patients if missing
 $check_unit = mysqli_query($conn, "SHOW COLUMNS FROM patients LIKE 'age_unit'");
 if ($check_unit && mysqli_num_rows($check_unit) == 0) {
@@ -254,4 +320,3 @@ if ($check_doc_q && mysqli_num_rows($check_doc_q) == 0) {
     @mysqli_query($conn, "ALTER TABLE doctors ADD COLUMN qualification VARCHAR(255) AFTER specialization");
     @mysqli_query($conn, "ALTER TABLE doctors ADD COLUMN experience INT DEFAULT 0 AFTER qualification");
 }
-?>

@@ -42,10 +42,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($id > 0) {
         $sql = "UPDATE patients SET name='$name', phone='$phone', email='$email', age=$age, address='$address' WHERE id=$id";
     } else {
-        $sql = "INSERT INTO patients (name, phone, email, age, address) VALUES ('$name', '$phone', '$email', $age, '$address')";
+        // Check for Unique (Name + Mobile)
+        $check_unique = mysqli_query($conn, "SELECT id FROM patients WHERE name = '$name' AND phone = '$phone'");
+        if (mysqli_num_rows($check_unique) > 0) {
+            $error = "Duplicate Entry: A patient with this Name and Mobile Number is already registered.";
+        } else {
+            // Generate Unique Patient ID (Mobile + Suffix 0-9)
+            $clean_phone = preg_replace('/[^0-9]/', '', $phone);
+            $check_existing = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE phone = '$phone'");
+            $count = mysqli_fetch_assoc($check_existing)['cnt'];
+            
+            if ($count >= 10) {
+                $error = "Limit Reached: Maximum 10 patients are allowed for a single mobile number.";
+            } else {
+                $patient_uid = $clean_phone . $count;
+                $sql = "INSERT INTO patients (patient_uid, name, phone, email, age, address) VALUES ('$patient_uid', '$name', '$phone', '$email', $age, '$address')";
+            }
+        }
     }
 
-    if (mysqli_query($conn, $sql)) {
+    if (!isset($error) && mysqli_query($conn, $sql)) {
         $patient_id = $id > 0 ? $id : mysqli_insert_id($conn);
         
         // Handle categories
@@ -97,7 +113,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <div style="padding: 24px;">
                 <div class="form-group">
                     <label class="form-label">Full Patient Name <span style="color:var(--danger)">*</span></label>
-                    <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($name) ?>" placeholder="e.g. John Doe" required style="border-radius: 8px;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($name) ?>" placeholder="e.g. John Doe" required style="border-radius: 8px; flex: 1;">
+                        <?php if($id > 0 && isset($row['patient_uid'])): ?>
+                            <div class="badge" style="background: #F1F5F9; color: #475569; padding: 10px 15px; border-radius: 8px; font-weight: 700; border: 1px solid #E2E8F0;">
+                                <i class="fas fa-id-card"></i> ID: <?= $row['patient_uid'] ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">

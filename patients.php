@@ -88,7 +88,10 @@ $categories_list = mysqli_query($conn, "SELECT * FROM categories ORDER BY name A
                                 <?= $initials ?>
                             </div>
                             <div>
-                                <div style="font-weight: 700; color: var(--secondary); font-size: 14px;"><?= htmlspecialchars($row['name']) ?></div>
+                                <div style="font-weight: 700; color: var(--secondary); font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                                    <?= htmlspecialchars($row['name']) ?>
+                                    <span class="badge" style="background: #F8FAFC; color: #64748B; font-size: 10px; border: 1px solid #E2E8F0; padding: 2px 6px;">ID: <?= $row['patient_uid'] ?: 'N/A' ?></span>
+                                </div>
                                 <div style="font-size: 11px; color: var(--text-muted);"><i class="fas fa-phone-alt" style="font-size: 10px;"></i> <?= htmlspecialchars($row['phone']) ?></div>
                             </div>
                         </div>
