@@ -15,8 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Config } from '../Config';
 import { Theme } from '../styles/Theme';
+import { useAuth } from './_layout';
 
 export default function LoginScreen() {
+  const { setIsAuthenticated } = useAuth();
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState(1); // 1: Phone, 2: OTP
@@ -92,9 +94,14 @@ export default function LoginScreen() {
       }
 
       if (json.success) {
-        await AsyncStorage.setItem('userToken', json.token);
-        await AsyncStorage.setItem('userPhone', json.phone);
-        router.replace('/');
+        if (json.is_new) {
+          router.push({ pathname: '/signup', params: { phone: json.phone, token: json.token } });
+        } else {
+          await AsyncStorage.setItem('userToken', json.token);
+          await AsyncStorage.setItem('userPhone', json.phone);
+          setIsAuthenticated(true);
+          router.replace('/');
+        }
       } else {
         Alert.alert('Error', json.message || 'Invalid OTP');
       }
@@ -159,18 +166,27 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {step === 2 && (
-            <TouchableOpacity
-              onPress={() => setStep(1)}
-              style={styles.backButton}
-            >
-              <Text style={styles.backButtonText}>Change Phone Number</Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.linksRow}>
+            {step === 2 ? (
+              <TouchableOpacity
+                onPress={() => setStep(1)}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>Change Number</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => router.push('/signup')}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>New Doctor? Register</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>OTP will be sent via WhatsApp</Text>
+          <Text style={styles.footerText}>OTP via WhatsApp</Text>
           <Ionicons name="logo-whatsapp" size={16} color="#25D366" style={{ marginLeft: 5 }} />
         </View>
       </View>
@@ -272,8 +288,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginRight: 10,
   },
-  backButton: {
+  linksRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     marginTop: 20,
+  },
+  backButton: {
     alignItems: 'center',
   },
   backButtonText: {

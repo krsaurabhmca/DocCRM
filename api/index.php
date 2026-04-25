@@ -209,6 +209,32 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
 
 if ($action) {
     switch ($action) {
+        case 'signup_doctor':
+            $phone = mysqli_real_escape_string($conn, $_POST['phone'] ?? '');
+            $name = mysqli_real_escape_string($conn, $_POST['name'] ?? '');
+            $specialization = mysqli_real_escape_string($conn, $_POST['specialization'] ?? '');
+            $qualification = mysqli_real_escape_string($conn, $_POST['qualification'] ?? '');
+
+            if (!$phone || !$name) {
+                echo json_encode(['success' => false, 'message' => 'Name and Phone required']);
+                break;
+            }
+
+            // Check if already exists
+            $check = mysqli_query($conn, "SELECT id FROM doctors WHERE phone LIKE '%" . substr($phone, -10) . "%'");
+            if (mysqli_num_rows($check) > 0) {
+                echo json_encode(['success' => false, 'message' => 'Account already exists. Please login.']);
+                break;
+            }
+
+            $sql = "INSERT INTO doctors (name, phone, specialization, qualification) VALUES ('$name', '$phone', '$specialization', '$qualification')";
+            if (mysqli_query($conn, $sql)) {
+                echo json_encode(['success' => true, 'message' => 'Account created successfully']);
+            } else {
+                echo json_encode(['success' => false, 'message' => mysqli_error($conn)]);
+            }
+            break;
+
         case 'send_otp':
             $phone = mysqli_real_escape_string($conn, $_POST['phone'] ?? '');
             if (!$phone) {
@@ -240,11 +266,16 @@ if ($action) {
                 $id = $row['id'];
                 mysqli_query($conn, "UPDATE login_otps SET status = 'Verified' WHERE id = $id");
 
+                // Check if doctor exists in doctors table
+                $doc_check = mysqli_query($conn, "SELECT id FROM doctors WHERE phone LIKE '%" . substr($phone, -10) . "%' LIMIT 1");
+                $is_new = (mysqli_num_rows($doc_check) == 0);
+
                 echo json_encode([
                     'success' => true,
                     'message' => 'Login successful',
                     'token' => base64_encode($phone),
-                    'phone' => $phone
+                    'phone' => $phone,
+                    'is_new' => $is_new
                 ]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid or expired OTP']);
