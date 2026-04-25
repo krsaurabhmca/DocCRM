@@ -59,13 +59,25 @@ export default function Index() {
       const response = await fetch(url, {
         headers: { "X-API-KEY": API_KEY }
       });
-      const json = await response.json();
+
+      if (!response.ok) {
+        throw new Error(`Server Error: ${response.status}`);
+      }
+
+      const text = await response.text();
+      if (!text) {
+        throw new Error("Empty response from server");
+      }
+
+      const json = JSON.parse(text);
       if (json.success) {
         if (activeTab === "Home") {
           setDashboardStats(json.data);
         } else {
           setData(json.data);
         }
+      } else {
+        setError(json.message || "Failed to fetch data");
       }
     } catch (err: any) {
       console.error("Fetch Error:", err);
@@ -87,7 +99,13 @@ export default function Index() {
       const response = await fetch(`${API_BASE}?action=get_reminder_counts`, {
         headers: { "X-API-KEY": API_KEY }
       });
-      const json = await response.json();
+      
+      if (!response.ok) return;
+      
+      const text = await response.text();
+      if (!text) return;
+      
+      const json = JSON.parse(text);
       if (json.success) {
         setMarkedDates({
           ...json.data,

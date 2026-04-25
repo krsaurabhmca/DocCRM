@@ -55,14 +55,24 @@ export default function AddTemplate() {
       const response = await fetch(`${API_BASE}?action=get_app_settings`, {
         headers: { "X-API-KEY": API_KEY }
       });
-      const json = await response.json();
-      if (json.success && !id) {
-        const name = json.data.clinic_name || "Our Clinic";
-        const addr = json.data.clinic_address || "";
-        setForm(prev => ({
-          ...prev,
-          content_part3: `*${name}*\n${addr}`.trim()
-        }));
+      
+      if (!response.ok) return;
+      
+      const text = await response.text();
+      if (!text) return;
+      
+      try {
+        const json = JSON.parse(text);
+        if (json.success && !id) {
+          const name = json.data.clinic_name || "Our Clinic";
+          const addr = json.data.clinic_address || "";
+          setForm(prev => ({
+            ...prev,
+            content_part3: `*${name}*\n${addr}`.trim()
+          }));
+        }
+      } catch (e) {
+        console.error("JSON Parse Error:", e, text);
       }
     } catch (error) {
       console.error(error);
@@ -70,11 +80,22 @@ export default function AddTemplate() {
   };
 
   const fetchTemplateData = async () => {
-    try {
       const response = await fetch(`${API_BASE}?action=get_template&id=${id}`, {
         headers: { "X-API-KEY": API_KEY }
       });
-      const json = await response.json();
+      
+      if (!response.ok) {
+        Alert.alert("Error", "Server error: " + response.status);
+        return;
+      }
+      
+      const text = await response.text();
+      if (!text) {
+        Alert.alert("Error", "Empty response from server");
+        return;
+      }
+      
+      const json = JSON.parse(text);
       if (json.success) {
         const t = json.data;
         setForm({
@@ -91,8 +112,9 @@ export default function AddTemplate() {
           setExistingMedia(t.media_url);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      Alert.alert("Error", "Failed to load template: " + error.message);
     }
   };
 
@@ -150,16 +172,25 @@ export default function AddTemplate() {
         body: formData
       });
 
-      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(`Server Error: ${response.status}`);
+      }
+
+      const text = await response.text();
+      if (!text) {
+        throw new Error("Empty response from server");
+      }
+
+      const json = JSON.parse(text);
       if (json.success) {
         Alert.alert("Success", "Template created successfully!");
         router.back();
       } else {
         Alert.alert("Error", json.message || "Failed to save template.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      Alert.alert("Error", "Server connection failed.");
+      Alert.alert("Error", error.message || "Server connection failed.");
     } finally {
       setLoading(false);
     }

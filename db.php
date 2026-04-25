@@ -157,9 +157,15 @@ $tables = [
     )"
 ];
 
+foreach ($tables as $sql) {
+    if (!mysqli_query($conn, $sql)) {
+        die("Error creating table: " . mysqli_error($conn));
+    }
+}
+
 // Seed App Settings if empty
 $check_settings = mysqli_query($conn, "SELECT setting_key FROM app_settings LIMIT 1");
-if (mysqli_num_rows($check_settings) == 0) {
+if ($check_settings && mysqli_num_rows($check_settings) == 0) {
     mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES 
         ('clinic_name', 'DocCRM Clinic'),
         ('whatsapp_enabled', '0'),
@@ -180,15 +186,9 @@ if (mysqli_num_rows($check_settings) == 0) {
         ('reminder_template', 'appointment_reminder')");
 }
 
-foreach ($tables as $sql) {
-    if (!mysqli_query($conn, $sql)) {
-        die("Error creating table: " . mysqli_error($conn));
-    }
-}
-
 // Seed Default Templates if empty
 $check_templates = mysqli_query($conn, "SELECT id FROM templates LIMIT 1");
-if (mysqli_num_rows($check_templates) == 0) {
+if ($check_templates && mysqli_num_rows($check_templates) == 0) {
     mysqli_query($conn, "INSERT INTO templates (name, content_type, content_part1, content_part2) VALUES 
         ('Regular Checkup Reminder', 'Text', 'Hello [Patient Name], this is a reminder for your regular health checkup.', 'Please visit us between 10 AM to 5 PM.'),
         ('Holiday Clinic Notice', 'Image', 'Dear Patients, please note that our clinic will be closed on [Date] due to [Holiday].', 'We will resume on [Next Date].')");
