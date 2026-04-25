@@ -31,7 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_FILES['media_file']) && $_FILES['media_file']['error'] == UPLOAD_ERR_OK) {
         $upload_dir = 'uploads/';
         if(!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-        $filename = time() . '_' . basename($_FILES['media_file']['name']);
+        $extension = pathinfo($_FILES['media_file']['name'], PATHINFO_EXTENSION);
+        $filename = 'campaign_' . uniqid() . '_' . time() . '.' . $extension;
         $target_path = $upload_dir . $filename;
         if(move_uploaded_file($_FILES['media_file']['tmp_name'], $target_path)) {
             $media_url = $target_path;
