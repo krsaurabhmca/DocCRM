@@ -17,6 +17,8 @@ echo "API Key length: " . strlen($apiKey) . "\n";
 echo "From: $from\n";
 echo "Default Header: $headerImage\n";
 
+// Test a real number
+$to = "919431426600";
 $payload = [
     "from" => $from,
     "to" => $to,
