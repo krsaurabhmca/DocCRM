@@ -10,9 +10,9 @@ if (!$conn) {
 }
 
 // Create database if not exists
-$sql = "CREATE DATABASE IF NOT EXISTS DB_NAME";
+$sql = "CREATE DATABASE IF NOT EXISTS " . DB_NAME;
 if (!mysqli_query($conn, $sql)) {
-    die("Error creating database: " . mysqli_error($conn));
+    // If we can't create DB, we assume it exists or we don't have permissions
 }
 
 // Now connect to the database
@@ -24,6 +24,12 @@ if (!$conn) {
 
 // Create tables if they don't exist
 $tables = [
+    "CREATE TABLE IF NOT EXISTS admins (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )",
     "CREATE TABLE IF NOT EXISTS categories (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
