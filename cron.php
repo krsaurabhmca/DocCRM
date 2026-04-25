@@ -27,7 +27,7 @@ while ($row = mysqli_fetch_assoc($res)) {
 
     $variables = json_decode($row['variables'], true);
     
-    $success = send_aoc_whatsapp(
+    $result = send_aoc_whatsapp(
         $row['to_number'],
         $row['template_name'],
         $variables,
@@ -35,11 +35,12 @@ while ($row = mysqli_fetch_assoc($res)) {
         $row['media_url']
     );
 
-    if ($success) {
+    if ($result['success']) {
         mysqli_query($conn, "UPDATE message_queue SET status = 'Sent', processed_at = NOW() WHERE id = $id");
         echo "Sent to " . $row['to_number'] . "\n";
     } else {
-        mysqli_query($conn, "UPDATE message_queue SET status = 'Failed', error_message = 'Failed to send via AOC API' WHERE id = $id");
+        $error = mysqli_real_escape_string($conn, $result['response']);
+        mysqli_query($conn, "UPDATE message_queue SET status = 'Failed', error_message = '$error' WHERE id = $id");
         echo "Failed for " . $row['to_number'] . "\n";
     }
 }

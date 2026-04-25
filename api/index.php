@@ -76,33 +76,49 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
         $params[2] = $clinicInfo;
     }
 
-    $components = [
-        "body" => ["params" => array_values($params)]
-    ];
-
     // Default to Image Header if set in settings and not overridden
     if ($headerType === 'none' && $headerImage) {
         $headerType = 'image';
         $mediaUrl = $headerImage;
     }
 
+    $bodyParams = [];
+    foreach ($params as $p) {
+        $bodyParams[] = ["type" => "text", "text" => (string)$p];
+    }
+
+    $components = [
+        [
+            "type" => "body",
+            "parameters" => $bodyParams
+        ]
+    ];
+
     if ($headerType !== 'none' && $mediaUrl) {
+        $headerParam = ["type" => $headerType];
         if ($headerType === 'image') {
-            $components["header"] = ["type" => "image", "image" => ["link" => $mediaUrl]];
+            $headerParam["image"] = ["link" => $mediaUrl];
         } else if ($headerType === 'video') {
-            $components["header"] = ["type" => "video", "video" => ["link" => $mediaUrl]];
+            $headerParam["video"] = ["link" => $mediaUrl];
         } else if ($headerType === 'document') {
-             $components["header"] = ["type" => "document", "document" => ["link" => $mediaUrl, "filename" => "Document"]];
+            $headerParam["document"] = ["link" => $mediaUrl, "filename" => "Document"];
         }
+        
+        $components[] = [
+            "type" => "header",
+            "parameters" => [$headerParam]
+        ];
     }
 
     $payload = [
-        "from" => $from,
+        "messaging_product" => "whatsapp",
         "to" => $to,
-        "templateName" => $templateName,
         "type" => "template",
-        "components" => $components,
-        "campaignName" => "DocCRM_Auto"
+        "template" => [
+            "name" => $templateName,
+            "language" => ["code" => "en_US"],
+            "components" => $components
+        ]
     ];
 
     $ch = curl_init($url);
@@ -130,7 +146,10 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
         mysqli_query($conn, "INSERT INTO message_logs (patient_id, message, status) VALUES ($p_id, '$msg', '$status')");
     }
 
-    return $status === 'Sent';
+    return [
+        'success' => ($httpCode >= 200 && $httpCode < 300),
+        'response' => $response
+    ];
 }
 
 if ($action) {
@@ -621,8 +640,9 @@ if ($action) {
             $v_esc = mysqli_real_escape_string($conn, $variables);
             $m_esc = mysqli_real_escape_string($conn, $mediaUrl);
             
+            $tpl_name = mysqli_real_escape_string($conn, $template['slug'] ?: 'generic_update');
             $q_sql = "INSERT INTO message_queue (to_number, template_name, variables, header_type, media_url, scheduled_at) 
-                      VALUES ('$to', 'generic_update', '$v_esc', '$type', '$m_esc', '$scheduled_at')";
+                      VALUES ('$to', '$tpl_name', '$v_esc', '$type', '$m_esc', '$scheduled_at')";
             mysqli_query($conn, $q_sql);
             $count++;
         }
