@@ -91,7 +91,6 @@ export default function ClinicProfile() {
         body: formData,
         headers: {
           'X-API-KEY': API_KEY,
-          'Content-Type': 'multipart/form-data',
         },
       });
 

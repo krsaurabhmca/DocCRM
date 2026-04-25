@@ -409,7 +409,6 @@ if ($action) {
         case 'save_template':
             $id = (int) ($_POST['id'] ?? 0);
             $name = mysqli_real_escape_string($conn, $_POST['name'] ?? '');
-            $aoc_name = mysqli_real_escape_string($conn, $_POST['aoc_template_name'] ?? '');
             $type = mysqli_real_escape_string($conn, $_POST['content_type'] ?? 'Text');
             $part1 = mysqli_real_escape_string($conn, $_POST['content_part1'] ?? '');
             $part2 = mysqli_real_escape_string($conn, $_POST['content_part2'] ?? '');
@@ -436,9 +435,9 @@ if ($action) {
                 }
 
                 if ($id > 0) {
-                    $sql = "UPDATE templates SET name='$name', aoc_template_name='$aoc_name', content_type='$type', content_part1='$part1', content_part2='$part2', content_part3='$part3', media_url='$media_url', is_default=$is_default WHERE id=$id";
+                    $sql = "UPDATE templates SET name='$name', content_type='$type', content_part1='$part1', content_part2='$part2', content_part3='$part3', media_url='$media_url', is_default=$is_default WHERE id=$id";
                 } else {
-                    $sql = "INSERT INTO templates (name, aoc_template_name, content_type, content_part1, content_part2, content_part3, media_url, is_default) VALUES ('$name', '$aoc_name', '$type', '$part1', '$part2', '$part3', '$media_url', $is_default)";
+                    $sql = "INSERT INTO templates (name, content_type, content_part1, content_part2, content_part3, media_url, is_default) VALUES ('$name', '$type', '$part1', '$part2', '$part3', '$media_url', $is_default)";
                 }
 
                 if (mysqli_query($conn, $sql)) {

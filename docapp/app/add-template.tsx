@@ -32,7 +32,6 @@ export default function AddTemplate() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
-    aoc_template_name: "",
     content_type: "Image",
     content_part1: "Dear Parents",
     content_part2: "Clinic Details",
@@ -55,12 +54,12 @@ export default function AddTemplate() {
       const response = await fetch(`${API_BASE}?action=get_app_settings`, {
         headers: { "X-API-KEY": API_KEY }
       });
-      
+
       if (!response.ok) return;
-      
+
       const text = await response.text();
       if (!text) return;
-      
+
       try {
         const json = JSON.parse(text);
         if (json.success && !id) {
@@ -84,24 +83,23 @@ export default function AddTemplate() {
       const response = await fetch(`${API_BASE}?action=get_template&id=${id}`, {
         headers: { "X-API-KEY": API_KEY }
       });
-      
+
       if (!response.ok) {
         Alert.alert("Error", "Server error: " + response.status);
         return;
       }
-      
+
       const text = await response.text();
       if (!text) {
         Alert.alert("Error", "Empty response from server");
         return;
       }
-      
+
       const json = JSON.parse(text);
       if (json.success) {
         const t = json.data;
         setForm({
           name: t.name,
-          aoc_template_name: t.aoc_template_name || "",
           content_type: t.content_type,
           content_part1: t.content_part1,
           content_part2: t.content_part2 || "",
@@ -147,7 +145,6 @@ export default function AddTemplate() {
       const formData = new FormData();
       if (id) formData.append("id", id as string);
       formData.append("name", form.name);
-      formData.append("aoc_template_name", form.aoc_template_name);
       formData.append("content_type", form.content_type);
       formData.append("content_part1", form.content_part1);
       formData.append("content_part2", form.content_part2);
@@ -168,7 +165,6 @@ export default function AddTemplate() {
         method: "POST",
         headers: {
           "X-API-KEY": API_KEY,
-          "Content-Type": "multipart/form-data"
         },
         body: formData
       });
@@ -220,20 +216,7 @@ export default function AddTemplate() {
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: Theme.colors.primary }]}>AOC Portal Template Name *</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="code-working-outline" size={20} color={Theme.colors.primary} />
-              <TextInput
-                style={styles.input}
-                placeholder="Exact name from AOC Portal (e.g. greeting)"
-                value={form.aoc_template_name}
-                autoCapitalize="none"
-                onChangeText={(t) => setForm({ ...form, aoc_template_name: t })}
-              />
-            </View>
-            <Text style={styles.lockedHint}>This MUST match the Approved Template name in your AOC account.</Text>
-          </View>
+
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Header Image * (Mandatory)</Text>
@@ -263,8 +246,8 @@ export default function AddTemplate() {
 
           <View style={styles.inputGroup}>
             <View style={styles.partHeader}>
-                <Text style={styles.label}>Message Part 1 {isLocked && "(Auto-filled)"}</Text>
-                <Text style={styles.counter}>{form.content_part1.length}/600</Text>
+              <Text style={styles.label}>Message Part 1 {isLocked && "(Auto-filled)"}</Text>
+              <Text style={styles.counter}>{form.content_part1.length}/600</Text>
             </View>
             <View style={[styles.inputWrapper, isLocked && { backgroundColor: '#F1F5F9' }]}>
               <TextInput
