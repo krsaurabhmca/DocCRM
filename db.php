@@ -286,16 +286,16 @@ if ($check_settings_table && mysqli_num_rows($check_settings_table) > 0) {
 $part3_default = "*$clinic_name*\n$clinic_addr";
 
 // 1. Greeting Message
-$check_greet = mysqli_query($conn, "SELECT id FROM templates WHERE slug = 'greeting'");
+$check_greet = mysqli_query($conn, "SELECT id FROM templates WHERE aoc_template_name = 'greeting'");
 if ($check_greet && mysqli_num_rows($check_greet) == 0) {
-    mysqli_query($conn, "INSERT INTO templates (slug, name, content_type, content_part1, content_part2, content_part3, is_default) 
+    mysqli_query($conn, "INSERT INTO templates (aoc_template_name, name, content_type, content_part1, content_part2, content_part3, is_default) 
     VALUES ('greeting', 'New Patient Greeting', 'Image', 'Dear #Patient Name#', 'Welcome to our clinic. We are happy to serve you.', '$part3_default', 1)");
 }
 
 // 2. Appointment Message
-$check_app = mysqli_query($conn, "SELECT id FROM templates WHERE slug = 'appointment'");
+$check_app = mysqli_query($conn, "SELECT id FROM templates WHERE aoc_template_name = 'appointment'");
 if ($check_app && mysqli_num_rows($check_app) == 0) {
-    mysqli_query($conn, "INSERT INTO templates (slug, name, content_type, content_part1, content_part2, content_part3, is_default) 
+    mysqli_query($conn, "INSERT INTO templates (aoc_template_name, name, content_type, content_part1, content_part2, content_part3, is_default) 
     VALUES ('appointment', 'Appointment Confirmation', 'Image', 'Dear #Patient Name#', 'Your appointment has been confirmed. Please visit on time.', '$part3_default', 0)");
 }
 
