@@ -216,6 +216,15 @@ if ($action) {
                 break;
             }
 
+            // 🔹 Check if account exists in doctors table
+            $phone_clean = substr(preg_replace('/[^0-9]/', '', $phone), -10);
+            $check = mysqli_query($conn, "SELECT id FROM doctors WHERE phone LIKE '%$phone_clean%' LIMIT 1");
+
+            if (mysqli_num_rows($check) == 0) {
+                echo json_encode(['success' => false, 'message' => 'No Account found. Please contact administrator.']);
+                break;
+            }
+
             $otp = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
             mysqli_query($conn, "INSERT INTO login_otps (phone, otp) VALUES ('$phone', '$otp')");
 
