@@ -282,6 +282,9 @@ if ($check_settings_table && mysqli_num_rows($check_settings_table) > 0) {
         $ca_row = mysqli_fetch_assoc($ca_res);
         if ($ca_row) $clinic_addr = $ca_row['setting_value'];
     }
+    
+    // Seed default template name
+    mysqli_query($conn, "INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES ('whatsapp_default_template', 'info_update_43')");
 }
 $part3_default = "*$clinic_name*\n$clinic_addr";
 
