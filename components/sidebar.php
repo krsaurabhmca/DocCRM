@@ -14,6 +14,12 @@
             <a href="index.php" class="nav-item <?= $current_page == 'index.php' ? 'active' : '' ?>">
                 <i class="fas fa-chart-pie"></i> <span>Dashboard</span>
             </a>
+            <a href="patients.php" class="nav-item <?= ($current_page == 'patients.php' || $current_page == 'patient_form.php') ? 'active' : '' ?>">
+                <i class="fas fa-user-injured"></i> <span>Patients</span>
+            </a>
+            <a href="doctors.php" class="nav-item <?= $current_page == 'doctors.php' ? 'active' : '' ?>">
+                <i class="fas fa-user-md"></i> <span>Doctors Team</span>
+            </a>
             <a href="queue.php" class="nav-item <?= $current_page == 'queue.php' ? 'active' : '' ?>">
                 <i class="fas fa-list-ol"></i> <span>Today's Queue</span>
             </a>

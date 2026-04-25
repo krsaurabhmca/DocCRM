@@ -190,11 +190,39 @@ $end_time = isset($time_parts[1]) ? date("H:i", strtotime($time_parts[1])) : "20
                     <h3 class="card-title"><i class="fas fa-money-bill-wave" style="color: var(--success);"></i> Financial Defaults</h3>
                 </div>
                 <div style="padding: 24px;">
-                    <div class="form-group">
-                        <label class="form-label">Registration Fee</label>
-                        <div style="position: relative;">
-                            <span style="position: absolute; left: 12px; top: 10px; color: var(--text-muted); font-weight: 700;">₹</span>
-                            <input type="number" name="settings[default_fee]" class="form-control" style="padding-left: 25px; border-radius: 8px;" value="<?= htmlspecialchars($settings['default_fee'] ?? '500') ?>">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label class="form-label">New Registration Fee</label>
+                            <div style="position: relative;">
+                                <span style="position: absolute; left: 12px; top: 10px; color: var(--text-muted); font-weight: 700;">₹</span>
+                                <input type="number" name="settings[default_fee]" class="form-control" style="padding-left: 25px; border-radius: 8px;" value="<?= htmlspecialchars($settings['default_fee'] ?? '500') ?>">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Follow-up Fee</label>
+                            <div style="position: relative;">
+                                <span style="position: absolute; left: 12px; top: 10px; color: var(--text-muted); font-weight: 700;">₹</span>
+                                <input type="number" name="settings[followup_fee]" class="form-control" style="padding-left: 25px; border-radius: 8px;" value="<?= htmlspecialchars($settings['followup_fee'] ?? '200') ?>">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="border-radius: 16px;">
+                <div class="card-header" style="background: #F8FAFC;">
+                    <h3 class="card-title"><i class="fas fa-user-shield" style="color: var(--danger);"></i> Clinical Capacity Limits</h3>
+                </div>
+                <div style="padding: 24px;">
+                    <p class="text-muted mb-3" style="font-size: 11px;">Set daily limits for patient registrations. Use '0' for unlimited.</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label class="form-label">Max New Patients / Day</label>
+                            <input type="number" name="settings[max_new_patients]" class="form-control" style="border-radius: 8px;" value="<?= htmlspecialchars($settings['max_new_patients'] ?? '0') ?>">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Old Patients / Day</label>
+                            <input type="number" name="settings[max_old_patients]" class="form-control" style="border-radius: 8px;" value="<?= htmlspecialchars($settings['max_old_patients'] ?? '0') ?>">
                         </div>
                     </div>
                 </div>
