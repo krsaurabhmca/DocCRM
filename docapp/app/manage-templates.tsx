@@ -73,26 +73,34 @@ export default function ManageTemplates() {
       </View>
       <View style={styles.itemContent}>
         <View style={styles.itemHeader}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            {(item.is_default === "1" || item.is_default === 1) && (
-              <View style={styles.defaultBadge}>
-                <Text style={styles.defaultBadgeText}>DEFAULT</Text>
-              </View>
-            )}
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: 'wrap' }}>
+              <Text style={styles.itemName}>{item.name}</Text>
+              {item.aoc_template_name && (
+                <View style={styles.aocBadge}>
+                  <Ionicons name="flash" size={10} color="#F59E0B" />
+                  <Text style={styles.aocBadgeText}>{item.aoc_template_name}</Text>
+                </View>
+              )}
+              {(item.is_default === "1" || item.is_default === 1) && (
+                <View style={styles.defaultBadge}>
+                  <Text style={styles.defaultBadgeText}>DEFAULT</Text>
+                </View>
+              )}
+            </View>
           </View>
           <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
             <TouchableOpacity onPress={() => router.push({ pathname: "/add-template", params: { id: item.id } })}>
               <Ionicons name="create-outline" size={20} color="#0284C7" />
             </TouchableOpacity>
-            {!item.slug && (
+            {(!item.aoc_template_name || item.id > 2) && (
               <TouchableOpacity onPress={() => deleteTemplate(item.id)}>
                 <Ionicons name="trash-outline" size={20} color="#E11D48" />
               </TouchableOpacity>
             )}
           </View>
         </View>
-        <Text style={styles.itemSubtext} numberOfLines={2}>{item.content_part1}</Text>
+        <Text style={styles.itemSubtext} numberOfLines={1}>{item.content_part1}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -136,4 +144,6 @@ const styles = StyleSheet.create({
   fab: { position: "absolute", bottom: 30, right: 30, backgroundColor: "#0284C7", width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center", elevation: 5 },
   defaultBadge: { backgroundColor: "#ECFDF5", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: "#10B981" },
   defaultBadgeText: { fontSize: 10, fontWeight: "800", color: "#059669" },
+  aocBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: "#FFFBEB", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: "#F59E0B", gap: 2 },
+  aocBadgeText: { fontSize: 10, fontWeight: "800", color: "#D97706" },
 });

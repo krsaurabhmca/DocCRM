@@ -32,6 +32,7 @@ export default function AddTemplate() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
+    aoc_template_name: "",
     content_type: "Image",
     content_part1: "Dear Parents",
     content_part2: "Clinic Details",
@@ -78,6 +79,7 @@ export default function AddTemplate() {
         const t = json.data;
         setForm({
           name: t.name,
+          aoc_template_name: t.aoc_template_name || "",
           content_type: t.content_type,
           content_part1: t.content_part1,
           content_part2: t.content_part2 || "",
@@ -122,6 +124,7 @@ export default function AddTemplate() {
       const formData = new FormData();
       if (id) formData.append("id", id as string);
       formData.append("name", form.name);
+      formData.append("aoc_template_name", form.aoc_template_name);
       formData.append("content_type", form.content_type);
       formData.append("content_part1", form.content_part1);
       formData.append("content_part2", form.content_part2);
@@ -183,6 +186,21 @@ export default function AddTemplate() {
                 onChangeText={(t) => setForm({ ...form, name: t })}
               />
             </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: Theme.colors.primary }]}>AOC Portal Template Name *</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="code-working-outline" size={20} color={Theme.colors.primary} />
+              <TextInput
+                style={styles.input}
+                placeholder="Exact name from AOC Portal (e.g. greeting)"
+                value={form.aoc_template_name}
+                autoCapitalize="none"
+                onChangeText={(t) => setForm({ ...form, aoc_template_name: t })}
+              />
+            </View>
+            <Text style={styles.lockedHint}>This MUST match the Approved Template name in your AOC account.</Text>
           </View>
 
           <View style={styles.inputGroup}>
