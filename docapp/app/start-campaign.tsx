@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Theme } from "../styles/Theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Config } from "../Config";
@@ -34,14 +35,33 @@ export default function StartCampaign() {
   const [patientCount, setPatientCount] = useState(0);
 
   useEffect(() => {
-    fetchData();
+    loadTokenAndFetch();
   }, []);
 
-  const fetchData = async () => {
+  const loadTokenAndFetch = async () => {
+    const t = await AsyncStorage.getItem("userToken");
+    if (t) {
+        fetchData(t);
+    } else {
+        router.replace("/login");
+    }
+  };
+
+  const fetchData = async (t: string) => {
     try {
       const [catRes, tempRes] = await Promise.all([
-        fetch(`${Config.API_BASE}?action=get_categories`, { headers: { "X-API-KEY": Config.API_KEY } }),
-        fetch(`${Config.API_BASE}?action=get_templates`, { headers: { "X-API-KEY": Config.API_KEY } })
+        fetch(`${Config.API_BASE}?action=get_categories`, { 
+            headers: { 
+                "X-API-KEY": Config.API_KEY,
+                "X-TOKEN": t
+            } 
+        }),
+        fetch(`${Config.API_BASE}?action=get_templates`, { 
+            headers: { 
+                "X-API-KEY": Config.API_KEY,
+                "X-TOKEN": t
+            } 
+        })
       ]);
       
       const catJson = await catRes.json();
@@ -72,9 +92,13 @@ export default function StartCampaign() {
 
   const fetchPatientCount = async () => {
     try {
+      const t = await AsyncStorage.getItem("userToken");
       const ids = selectedCategoryIds.join(",");
       const res = await fetch(`${Config.API_BASE}?action=get_campaign_reach&category_ids=${ids}`, {
-        headers: { "X-API-KEY": Config.API_KEY }
+        headers: { 
+            "X-API-KEY": Config.API_KEY,
+            "X-TOKEN": t || ""
+        }
       });
       const json = await res.json();
       if (json.success) setPatientCount(json.count);
@@ -110,13 +134,17 @@ export default function StartCampaign() {
   const launchNow = async () => {
     setLaunching(true);
     try {
+      const t = await AsyncStorage.getItem("userToken");
       const formData = new FormData();
       formData.append('category_ids', selectedCategoryIds.join(","));
       formData.append('template_id', selectedTemplate.id.toString());
 
       const response = await fetch(`${Config.API_BASE}?action=start_campaign`, {
         method: 'POST',
-        headers: { "X-API-KEY": Config.API_KEY },
+        headers: { 
+            "X-API-KEY": Config.API_KEY,
+            "X-TOKEN": t || ""
+        },
         body: formData
       });
       

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter, Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Config } from "../Config";
 
@@ -32,10 +33,12 @@ export default function AddCategory() {
 
     setLoading(true);
     try {
+      const t = await AsyncStorage.getItem("userToken");
       const response = await fetch(`${API_BASE}?action=save_category`, {
         method: "POST",
         headers: { 
           "X-API-KEY": API_KEY,
+          "X-TOKEN": t || "",
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ id, name })

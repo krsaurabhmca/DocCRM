@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Theme } from "../styles/Theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Config } from "../Config";
@@ -33,13 +34,27 @@ export default function WorkingDays() {
   const [tempTime, setTempTime] = useState({ hour: "10", minute: "00", period: "AM" });
 
   useEffect(() => {
-    fetchSettings();
+    loadTokenAndFetch();
   }, []);
 
-  const fetchSettings = async () => {
+  const loadTokenAndFetch = async () => {
+    const t = await AsyncStorage.getItem("userToken");
+    if (t) {
+        fetchSettings(t);
+    } else {
+        // router is not available here, but we can rely on parent layout
+        fetchSettings("");
+    }
+  };
+
+  const fetchSettings = async (t: string) => {
     try {
+      const activeToken = t || await AsyncStorage.getItem("userToken");
       const response = await fetch(`${Config.API_BASE}?action=get_app_settings`, {
-        headers: { "X-API-KEY": Config.API_KEY }
+        headers: { 
+            "X-API-KEY": Config.API_KEY,
+            "X-TOKEN": activeToken || ""
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -126,10 +141,12 @@ export default function WorkingDays() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const t = await AsyncStorage.getItem("userToken");
       const response = await fetch(`${Config.API_BASE}?action=save_app_settings`, {
         method: "POST",
         headers: {
           "X-API-KEY": Config.API_KEY,
+          "X-TOKEN": t || "",
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
