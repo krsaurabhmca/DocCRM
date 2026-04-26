@@ -13,6 +13,7 @@ import {
   Dimensions,
   StatusBar,
   ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
