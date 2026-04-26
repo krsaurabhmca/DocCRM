@@ -16,6 +16,7 @@ import { useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Theme } from "../styles/Theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Config } from "../Config";
 
@@ -39,13 +40,25 @@ export default function ManageDoctors() {
   });
 
   useEffect(() => {
-    fetchDoctors();
+    loadTokenAndFetch();
   }, []);
 
-  const fetchDoctors = async () => {
+  const loadTokenAndFetch = async () => {
+    const t = await AsyncStorage.getItem("userToken");
+    if (t) {
+        fetchDoctors(t);
+    } else {
+        router.replace("/login");
+    }
+  };
+
+  const fetchDoctors = async (t: string) => {
     try {
       const response = await fetch(`${API_BASE}?action=get_doctors`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": t
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -64,10 +77,12 @@ export default function ManageDoctors() {
 
     setLoading(true);
     try {
+      const t = await AsyncStorage.getItem("userToken");
       const response = await fetch(`${API_BASE}?action=save_doctor`, {
         method: "POST",
         headers: {
           "X-API-KEY": API_KEY,
+          "X-TOKEN": t || "",
           "Content-Type": "application/json"
         },
         body: JSON.stringify(form)
@@ -77,7 +92,7 @@ export default function ManageDoctors() {
         Alert.alert("Success", "Doctor profile saved!");
         setShowAdd(false);
         setForm({ id: 0, name: "", specialization: "", qualification: "", experience: "0", phone: "", email: "" });
-        fetchDoctors();
+        if (t) fetchDoctors(t);
       }
     } catch (error) {
       console.error(error);
