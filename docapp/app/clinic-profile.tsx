@@ -15,6 +15,7 @@ import { useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Theme } from "../styles/Theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Config } from "../Config";
 import * as ImagePicker from 'expo-image-picker';
 
@@ -40,13 +41,25 @@ export default function ClinicProfile() {
   });
 
   useEffect(() => {
-    fetchSettings();
+    loadTokenAndFetch();
   }, []);
 
-  const fetchSettings = async () => {
+  const loadTokenAndFetch = async () => {
+    const t = await AsyncStorage.getItem("userToken");
+    if (t) {
+        fetchSettings(t);
+    } else {
+        router.replace("/login");
+    }
+  };
+
+  const fetchSettings = async (t: string) => {
     try {
       const response = await fetch(`${API_BASE}?action=get_app_settings`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": t
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -75,6 +88,7 @@ export default function ClinicProfile() {
   const uploadFile = async (uri: string, type: string) => {
     setUploading(type);
     try {
+      const t = await AsyncStorage.getItem("userToken");
       const formData = new FormData();
       const filename = uri.split('/').pop();
       const match = /\.(\w+)$/.exec(filename || '');
@@ -91,6 +105,7 @@ export default function ClinicProfile() {
         body: formData,
         headers: {
           'X-API-KEY': API_KEY,
+          'X-TOKEN': t || ""
         },
       });
 
@@ -113,10 +128,12 @@ export default function ClinicProfile() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const t = await AsyncStorage.getItem("userToken");
       const response = await fetch(`${API_BASE}?action=save_app_settings`, {
         method: "POST",
         headers: { 
           "X-API-KEY": API_KEY,
+          "X-TOKEN": t || "",
           "Content-Type": "application/json"
         },
         body: JSON.stringify(settings)

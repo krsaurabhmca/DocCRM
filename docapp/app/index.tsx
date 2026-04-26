@@ -443,6 +443,9 @@ export default function Index() {
               <TouchableOpacity style={styles.headerBtn} onPress={() => setIsSearching(true)}>
                 <Ionicons name="search-outline" size={24} color="white" />
               </TouchableOpacity>
+              <TouchableOpacity style={styles.headerBtn} onPress={() => router.push("/settings")}>
+                <Ionicons name="ellipsis-vertical" size={24} color="white" />
+              </TouchableOpacity>
               <TouchableOpacity style={styles.headerBtn} onPress={handleLogout}>
                 <Ionicons name="power-outline" size={24} color="white" />
               </TouchableOpacity>
