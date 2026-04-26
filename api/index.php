@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-API-KEY');
+header('Access-Control-Allow-Headers: Content-Type, X-API-KEY, X-TOKEN');
 
 date_default_timezone_set('Asia/Kolkata');
 
@@ -13,9 +13,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit;
 }
 
+// 🔹 Robust Header Extraction Helper
+function get_custom_header($name) {
+    $name = strtoupper(str_replace('-', '_', $name));
+    if (isset($_SERVER['HTTP_' . $name])) return $_SERVER['HTTP_' . $name];
+    
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        foreach ($headers as $k => $v) {
+            if (strcasecmp($k, str_replace('_', '-', $name)) == 0) return $v;
+        }
+    }
+    return '';
+}
+
 // Simple API Key security
 $api_key = "DOC_CRM_API_SECRET_2026";
-$received_key = $_SERVER['HTTP_X_API_KEY'] ?? $_REQUEST['api_key'] ?? '';
+$received_key = get_custom_header('X-API-KEY') ?: ($_REQUEST['api_key'] ?? '');
 
 // Handle cases where headers might be prefixed differently in some environments
 if (!$received_key) {
@@ -35,11 +49,15 @@ if (!defined('INTERNAL_ACCESS')) {
 }
 
 // Determine Clinic ID and Doctor ID from Token
-$token = $_SERVER['HTTP_X_TOKEN'] ?? $_REQUEST['token'] ?? '';
+$token = get_custom_header('X-TOKEN') ?: ($_REQUEST['token'] ?? '');
 $clinic_id = 0;
 $doctor_id = 0; // If logged in as a specific doctor
+
 if ($token) {
-    $token_data = json_decode(base64_decode($token), true);
+    // 🔹 Robust decoding (handle URL safe base64)
+    $decoded = base64_decode(str_replace(['-', '_'], ['+', '/'], $token));
+    $token_data = json_decode($decoded, true);
+    
     if ($token_data) {
         $clinic_id = isset($token_data['clinic_id']) ? (int)$token_data['clinic_id'] : 0;
         $doctor_id = isset($token_data['doctor_id']) ? (int)$token_data['doctor_id'] : 0;
