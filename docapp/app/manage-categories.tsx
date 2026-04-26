@@ -12,6 +12,7 @@ import {
 import { useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Config } from "../Config";
 
@@ -25,10 +26,29 @@ export default function ManageCategories() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    loadTokenAndFetch();
+  }, []);
+
+  const loadTokenAndFetch = async () => {
+    const t = await AsyncStorage.getItem("userToken");
+    if (t) {
+        fetchData(t);
+    } else {
+        router.replace("/login");
+    }
+  };
+
+  const fetchData = async (t?: string) => {
     try {
+      const activeToken = t || await AsyncStorage.getItem("userToken");
+      if (!activeToken) return;
+
       const response = await fetch(`${API_BASE}?action=get_categories`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": activeToken
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -42,16 +62,16 @@ export default function ManageCategories() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const deleteCategory = (id: number) => {
     Alert.alert("Delete Category", "Are you sure? Patients in this category will not be deleted, but the grouping will be removed.", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
+        const t = await AsyncStorage.getItem("userToken");
         const response = await fetch(`${API_BASE}?action=delete_category&id=${id}`, {
-          headers: { "X-API-KEY": API_KEY }
+          headers: { 
+              "X-API-KEY": API_KEY,
+              "X-TOKEN": t || ""
+          }
         });
         const json = await response.json();
         if (json.success) fetchData();

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter, Stack, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Config } from "../Config";
 
@@ -25,8 +26,14 @@ export default function ManageTemplates() {
 
   const fetchData = useCallback(async () => {
     try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) return;
+
       const response = await fetch(`${API_BASE}?action=get_templates`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": token
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -50,8 +57,12 @@ export default function ManageTemplates() {
     Alert.alert("Delete Template", "Are you sure you want to remove this message template?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
+        const token = await AsyncStorage.getItem("userToken");
         const response = await fetch(`${API_BASE}?action=delete_template&id=${id}`, {
-          headers: { "X-API-KEY": API_KEY }
+          headers: { 
+              "X-API-KEY": API_KEY,
+              "X-TOKEN": token || ""
+          }
         });
         const json = await response.json();
         if (json.success) fetchData();
