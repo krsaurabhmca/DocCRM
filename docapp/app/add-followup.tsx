@@ -16,6 +16,7 @@ import {
 import { useRouter, Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Theme } from "../styles/Theme";
 import { GlobalStyles } from "../styles/GlobalStyles";
 import { Calendar } from "react-native-calendars";
@@ -44,18 +45,33 @@ export default function AddFollowup() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [workingDays, setWorkingDays] = useState<string[]>([]);
 
+  const [token, setToken] = useState("");
+
   useEffect(() => {
     if (patientId && patientName) {
       setSelectedPatient({ id: patientId, name: patientName });
     }
-    fetchSettingsAndSetDate();
-    fetchDoctors();
+    loadTokenAndFetch();
   }, [patientId, patientName]);
 
-  const fetchDoctors = async () => {
+  const loadTokenAndFetch = async () => {
+    const t = await AsyncStorage.getItem("userToken");
+    if (t) {
+        setToken(t);
+        fetchSettingsAndSetDate(t);
+        fetchDoctors(t);
+    } else {
+        router.replace("/login");
+    }
+  };
+
+  const fetchDoctors = async (t: string) => {
     try {
       const response = await fetch(`${API_BASE}?action=get_doctors`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": t
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -66,11 +82,14 @@ export default function AddFollowup() {
     }
   };
 
-  const fetchSettingsAndSetDate = async () => {
+  const fetchSettingsAndSetDate = async (t: string) => {
     try {
       // 1. Fetch Global Settings
       const setRes = await fetch(`${API_BASE}?action=get_app_settings`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": t
+        }
       });
       const setJson = await setRes.json();
       
@@ -92,7 +111,10 @@ export default function AddFollowup() {
       let finalFee = newFee;
       if (patientId) {
         const patRes = await fetch(`${API_BASE}?action=get_patient&id=${patientId}`, {
-          headers: { "X-API-KEY": API_KEY }
+          headers: { 
+              "X-API-KEY": API_KEY,
+              "X-TOKEN": t
+          }
         });
         const patJson = await patRes.json();
         if (patJson.success && patJson.data.history && patJson.data.history.length > 0) {
@@ -128,8 +150,12 @@ export default function AddFollowup() {
 
   const fetchPatients = async () => {
     try {
+      const savedToken = await AsyncStorage.getItem("userToken");
       const response = await fetch(`${API_BASE}?action=get_patients&search=${search}`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": savedToken || ""
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -148,10 +174,12 @@ export default function AddFollowup() {
 
     setLoading(true);
     try {
+      const savedToken = await AsyncStorage.getItem("userToken");
       const response = await fetch(`${API_BASE}?action=save_followup`, {
         method: "POST",
         headers: { 
           "X-API-KEY": API_KEY,
+          "X-TOKEN": savedToken || "",
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -163,6 +191,8 @@ export default function AddFollowup() {
       if (json.success) {
         Alert.alert("Success", "Followup scheduled!");
         router.back();
+      } else {
+        Alert.alert("Error", json.message || "Failed to save.");
       }
     } catch (error) {
       console.error(error);

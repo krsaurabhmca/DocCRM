@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Config } from "../../Config";
 import Theme from "../../styles/Theme";
@@ -29,8 +30,14 @@ export default function PatientProfile() {
 
   const fetchDefaultTemplate = useCallback(async () => {
     try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) return;
+
       const response = await fetch(`${API_BASE}?action=get_default_template`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": token
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -47,12 +54,25 @@ export default function PatientProfile() {
 
   const fetchPatient = useCallback(async () => {
     try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+          router.replace("/login");
+          return;
+      }
+
       const response = await fetch(`${API_BASE}?action=get_patient&id=${id}`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": token
+        }
       });
       const json = await response.json();
       if (json.success) {
         setPatient(json.data);
+      } else {
+        if (json.message && json.message.includes("identification failed")) {
+            router.replace("/login");
+        }
       }
     } catch (error) {
       console.error(error);
@@ -72,8 +92,14 @@ export default function PatientProfile() {
     Alert.alert("Delete Patient", "Are you sure you want to remove this patient?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
+        const token = await AsyncStorage.getItem("userToken");
+        if (!token) return;
+
         const response = await fetch(`${API_BASE}?action=delete_patient&id=${id}`, {
-          headers: { "X-API-KEY": API_KEY }
+          headers: { 
+              "X-API-KEY": API_KEY,
+              "X-TOKEN": token
+          }
         });
         const json = await response.json();
         if (json.success) router.back();
