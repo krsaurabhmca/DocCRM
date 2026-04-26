@@ -1,3 +1,4 @@
+import Theme from "../styles/Theme";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Text,
@@ -192,86 +193,86 @@ export default function Index() {
 
     return (
       <ScrollView style={styles.homeContainer}>
-        {/* Real-Life Onboarding Hub */}
+        {/* Clinical Session Control Center */}
         <View style={styles.onboardingCard}>
           <View style={styles.onboardingHeader}>
-            <Ionicons name="medical" size={20} color="#0284C7" />
-            <Text style={styles.onboardingTitle}>Doctor's Counter Check-in</Text>
+            <View style={styles.sessionBadge}>
+              <Ionicons name="flash" size={12} color="white" />
+              <Text style={styles.sessionBadgeText}>Active Session</Text>
+            </View>
+            <Text style={styles.onboardingTitle}>Medical Desk Control</Text>
           </View>
-          <Text style={styles.onboardingSub}>Start a session for the next patient</Text>
+          <Text style={styles.onboardingSub}>Quickly process new or returning patients for their consultation.</Text>
 
           <View style={styles.onboardingActions}>
             <TouchableOpacity
-              style={[styles.onboardingBtn, { backgroundColor: '#0284C7' }]}
+              style={[styles.onboardingBtn, { backgroundColor: Theme.colors.primary }]}
               onPress={() => router.push("/add-patient")}
             >
               <View style={styles.onboardingIconBox}>
-                <Ionicons name="person-add" size={22} color="white" />
+                <Ionicons name="person-add" size={20} color="white" />
               </View>
               <View>
-                <Text style={styles.onboardingBtnText}>New</Text>
-                <Text style={styles.onboardingBtnSub}>Patient Reg.</Text>
+                <Text style={styles.onboardingBtnText}>New File</Text>
+                <Text style={styles.onboardingBtnSub}>Registration</Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.onboardingBtn, { backgroundColor: '#059669' }]}
+              style={[styles.onboardingBtn, { backgroundColor: Theme.colors.success }]}
               onPress={() => router.push({ pathname: "/add-followup", params: { searchMode: 'phone' } })}
             >
               <View style={styles.onboardingIconBox}>
-                <Ionicons name="repeat" size={22} color="white" />
+                <Ionicons name="repeat" size={20} color="white" />
               </View>
               <View>
-                <Text style={styles.onboardingBtnText}>Old </Text>
-                <Text style={styles.onboardingBtnSub}>Patient Followup</Text>
+                <Text style={styles.onboardingBtnText}>Follow-up</Text>
+                <Text style={styles.onboardingBtnSub}>Existing Patient</Text>
               </View>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            style={[styles.onboardingBtn, { backgroundColor: '#7C3AED', marginTop: 10 }]}
+            style={styles.queueAction}
             onPress={() => router.push("/today-appointments")}
           >
-            <View style={styles.onboardingIconBox}>
-              <Ionicons name="list" size={22} color="white" />
-            </View>
-            <View>
-              <Text style={styles.onboardingBtnText}>Today Queue List</Text>
-              <Text style={styles.onboardingBtnSub}>Live Patient Appointments</Text>
+            <Ionicons name="list" size={20} color={Theme.colors.primary} />
+            <Text style={styles.queueActionText}>View Today's Appointment Queue</Text>
+            <View style={styles.queueBadge}>
+              <Text style={styles.queueBadgeText}>{dashboardStats.today_reminders}</Text>
             </View>
           </TouchableOpacity>
         </View>
 
         <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: '#F0F9FF' }]}>
+          <View style={[styles.statCard, { backgroundColor: Theme.colors.primaryLight }]}>
             <View style={[styles.statIcon, { backgroundColor: '#BAE6FD' }]}>
-              <Ionicons name="people" size={20} color="#0284C7" />
+              <Ionicons name="people" size={18} color={Theme.colors.primary} />
             </View>
             <Text style={styles.statValue}>{dashboardStats.patients}</Text>
-            <Text style={styles.statLabel}>Total Patients</Text>
+            <Text style={styles.statLabel}>Total Database</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#FFF7ED' }]}>
+          <View style={[styles.statCard, { backgroundColor: Theme.colors.warningLight }]}>
             <View style={[styles.statIcon, { backgroundColor: '#FFEDD5' }]}>
-              <Ionicons name="calendar" size={20} color="#EA580C" />
+              <Ionicons name="calendar" size={18} color={Theme.colors.warning} />
             </View>
             <Text style={styles.statValue}>{dashboardStats.today_reminders}</Text>
             <Text style={styles.statLabel}>Today Queue</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#ECFDF5' }]}>
+          <View style={[styles.statCard, { backgroundColor: Theme.colors.successLight }]}>
             <View style={[styles.statIcon, { backgroundColor: '#D1FAE5' }]}>
-              <Ionicons name="sparkles" size={20} color="#059669" />
+              <Ionicons name="trending-up" size={18} color={Theme.colors.success} />
             </View>
             <Text style={styles.statValue}>{dashboardStats.new_patients}</Text>
-            <Text style={styles.statLabel}>New (7 Days)</Text>
+            <Text style={styles.statLabel}>New Growth</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: '#F5F3FF' }]}>
             <View style={[styles.statIcon, { backgroundColor: '#EDE9FE' }]}>
-              <Ionicons name="shield-checkmark" size={20} color="#7C3AED" />
+              <Ionicons name="medkit" size={18} color="#7C3AED" />
             </View>
-            <Text style={styles.statValue}>{dashboardStats.old_patients}</Text>
-            <Text style={styles.statLabel}>Old Patients</Text>
+            <Text style={styles.statValue}>{dashboardStats.templates}</Text>
+            <Text style={styles.statLabel}>Templates</Text>
           </View>
-
         </View>
 
         <View style={styles.chartSection}>
@@ -409,25 +410,20 @@ export default function Index() {
         ) : (
           <>
             <View style={styles.headerBrand}>
-              {activeTab === "Reminders" && (
-                <TouchableOpacity onPress={() => setActiveTab("Patients")} style={{ marginRight: 10 }}>
-                  <Ionicons name="arrow-back" size={24} color="white" />
-                </TouchableOpacity>
-              )}
               <View style={styles.logoBadge}>
-                <Ionicons name="pulse-outline" size={20} color="#0284C7" />
+                <Ionicons name="pulse" size={20} color="#0284C7" />
               </View>
-              <Text style={styles.headerTitle}>{activeTab === "Reminders" ? "Daily Reminders" : "DocCRM"}</Text>
+              <View>
+                <Text style={styles.headerTitle}>{activeTab === "Reminders" ? "Reminders" : "DocCRM"}</Text>
+                <Text style={styles.headerSubtext}>Clinic Admin Console</Text>
+              </View>
             </View>
             <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.headerBtn} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={24} color="white" />
-              </TouchableOpacity>
               <TouchableOpacity style={styles.headerBtn} onPress={() => setIsSearching(true)}>
                 <Ionicons name="search-outline" size={24} color="white" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.headerBtn} onPress={() => router.push("/settings")}>
-                <Ionicons name="ellipsis-vertical" size={24} color="white" />
+              <TouchableOpacity style={styles.headerBtn} onPress={handleLogout}>
+                <Ionicons name="power-outline" size={24} color="white" />
               </TouchableOpacity>
             </View>
           </>
@@ -518,10 +514,11 @@ const styles = StyleSheet.create({
   header: { backgroundColor: "#0284C7", paddingHorizontal: 15, paddingTop: 15, paddingBottom: 5, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   headerBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
   logoBadge: { width: 32, height: 32, borderRadius: 8, backgroundColor: "white", justifyContent: "center", alignItems: "center" },
-  headerTitle: { color: "white", fontSize: 20, fontWeight: "700", letterSpacing: -0.5 },
+  headerTitle: { color: "white", fontSize: 18, fontWeight: "800", letterSpacing: -0.5 },
+  headerSubtext: { color: "rgba(255,255,255,0.7)", fontSize: 10, fontWeight: "600", textTransform: "uppercase" },
   searchBar: { flex: 1, flexDirection: "row", alignItems: "center", gap: 15, height: 45 },
   searchInput: { flex: 1, color: "white", fontSize: 18, fontWeight: "500" },
-  headerIcons: { flexDirection: "row" },
+  headerIcons: { flexDirection: "row", alignItems: "center" },
   headerBtn: { padding: 8, marginLeft: 5 },
   tabs: { backgroundColor: "#0284C7", flexDirection: "row", paddingTop: 5 },
   tab: { flex: 1, paddingVertical: 15, alignItems: "center", borderBottomWidth: 3, borderBottomColor: "transparent" },
@@ -529,42 +526,48 @@ const styles = StyleSheet.create({
   tabText: { color: "rgba(255,255,255,0.7)", fontWeight: "700", fontSize: 13 },
   activeTabText: { color: "white" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 100 },
-  listItem: { flexDirection: "row", paddingHorizontal: 15, paddingVertical: 12, alignItems: "center" },
-  itemContent: { flex: 1, borderBottomWidth: 0.5, borderBottomColor: "#E2E8F0", paddingBottom: 12 },
+  listItem: { flexDirection: "row", paddingHorizontal: 20, paddingVertical: 16, alignItems: "center" },
+  itemContent: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#F1F5F9", paddingBottom: 16 },
   itemHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  itemName: { fontSize: 16, fontWeight: "700", color: "#1E293B" },
+  itemName: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
   itemSub: { fontSize: 14, color: "#64748B", marginTop: 2 },
-  itemAddress: { fontSize: 12, color: "#94A3B8", marginTop: 2 },
+  itemAddress: { fontSize: 12, color: "#94A3B8", marginTop: 4 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  ageTag: { fontSize: 11, fontWeight: "700", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  avatarCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: "center", alignItems: "center", marginRight: 15 },
-  itemSubtext: { fontSize: 14, color: "#64748B" },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
-  emptyText: { color: "#94A3B8", fontSize: 16, fontWeight: "600" },
-  fab: { position: "absolute", bottom: 25, right: 25, backgroundColor: "#059669", width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center", elevation: 5, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
+  ageTag: { fontSize: 11, fontWeight: "700", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  avatarCircle: { width: 48, height: 48, borderRadius: 16, justifyContent: "center", alignItems: "center", marginRight: 15 },
+  itemSubtext: { fontSize: 14, color: "#64748B", marginTop: 2 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusText: { fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
+  emptyText: { color: "#94A3B8", fontSize: 16, fontWeight: "600", marginTop: 20 },
+  fab: { position: "absolute", bottom: 30, right: 25, backgroundColor: Theme.colors.success, width: 64, height: 64, borderRadius: 24, justifyContent: "center", alignItems: "center", elevation: 8, shadowColor: "#059669", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12 },
   calendarContainer: { backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#E2E8F0" },
-  dateHeader: { paddingHorizontal: 20, paddingVertical: 12, backgroundColor: "#F8FAFC", borderTopWidth: 1, borderTopColor: "#E2E8F0" },
-  dateHeaderText: { fontSize: 14, fontWeight: "700", color: "#475569", textTransform: "uppercase", letterSpacing: 0.5 },
+  dateHeader: { paddingHorizontal: 20, paddingVertical: 15, backgroundColor: "#F8FAFC", borderTopWidth: 1, borderTopColor: "#E2E8F0" },
+  dateHeaderText: { fontSize: 13, fontWeight: "800", color: "#64748B", textTransform: "uppercase", letterSpacing: 1 },
   homeContainer: { flex: 1, padding: 20 },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 15 },
-  statCard: { width: (width - 55) / 2, padding: 15, borderRadius: 16, borderWidth: 1, borderColor: "#E2E8F0" },
-  statIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", marginBottom: 10 },
-  statValue: { fontSize: 24, fontWeight: "700", color: "#1E293B" },
-  statLabel: { fontSize: 12, color: "#64748B", marginTop: 2 },
-  chartSection: { marginTop: 25, backgroundColor: "white", padding: 15, borderRadius: 16, borderWidth: 1, borderColor: "#E2E8F0" },
-  sectionTitle: { fontSize: 15, fontWeight: "700", color: "#1E293B", marginBottom: 15 },
+  statCard: { width: (width - 55) / 2, padding: 18, borderRadius: 24, borderWidth: 1, borderColor: "rgba(0,0,0,0.05)" },
+  statIcon: { width: 36, height: 36, borderRadius: 12, justifyContent: "center", alignItems: "center", marginBottom: 12 },
+  statValue: { fontSize: 26, fontWeight: "800", color: "#0F172A" },
+  statLabel: { fontSize: 12, color: "#64748B", fontWeight: "600", marginTop: 4 },
+  chartSection: { marginTop: 25, backgroundColor: "white", padding: 20, borderRadius: 24, borderWidth: 1, borderColor: "#F1F5F9", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  sectionTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A", marginBottom: 20 },
   quickActions: { marginTop: 25 },
   actionRow: { flexDirection: "row", gap: 12 },
-  actionBtn: { flex: 1, backgroundColor: "white", padding: 15, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#E2E8F0", gap: 8 },
-  actionText: { fontSize: 12, fontWeight: "600", color: "#475569" },
-  onboardingCard: { backgroundColor: "white", padding: 15, borderRadius: 20, elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, borderWidth: 1, borderColor: "#E2E8F0", marginBottom: 25 },
-  onboardingHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 5 },
-  onboardingTitle: { fontSize: 16, fontWeight: "800", color: "#1E293B" },
-  onboardingSub: { fontSize: 12, color: "#64748B", marginBottom: 15 },
-  onboardingActions: { flexDirection: "row", gap: 10 },
-  onboardingBtn: { flex: 1, flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 12, gap: 10 },
-  onboardingIconBox: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.2)", justifyContent: "center", alignItems: "center" },
-  onboardingBtnText: { color: "white", fontSize: 13, fontWeight: "700" },
-  onboardingBtnSub: { color: "rgba(255,255,255,0.8)", fontSize: 10, fontWeight: "500" },
+  actionBtn: { flex: 1, backgroundColor: "white", padding: 18, borderRadius: 20, alignItems: "center", borderWidth: 1, borderColor: "#F1F5F9", gap: 10 },
+  actionText: { fontSize: 13, fontWeight: "700", color: "#475569" },
+  onboardingCard: { backgroundColor: "white", padding: 20, borderRadius: 28, elevation: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, borderWidth: 1, borderColor: "#F1F5F9", marginBottom: 25 },
+  onboardingHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  sessionBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Theme.colors.success, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
+  sessionBadgeText: { color: "white", fontSize: 10, fontWeight: "800" },
+  onboardingTitle: { fontSize: 18, fontWeight: "800", color: "#0F172A" },
+  onboardingSub: { fontSize: 13, color: "#64748B", lineHeight: 18, marginBottom: 20 },
+  onboardingActions: { flexDirection: "row", gap: 12 },
+  onboardingBtn: { flex: 1, flexDirection: "row", alignItems: "center", padding: 15, borderRadius: 20, gap: 12 },
+  onboardingIconBox: { width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.25)", justifyContent: "center", alignItems: "center" },
+  onboardingBtnText: { color: "white", fontSize: 15, fontWeight: "800" },
+  onboardingBtnSub: { color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: "600" },
+  queueAction: { marginTop: 15, flexDirection: "row", alignItems: "center", padding: 15, backgroundColor: Theme.colors.primaryLight, borderRadius: 16, gap: 12 },
+  queueActionText: { flex: 1, fontSize: 14, fontWeight: "700", color: Theme.colors.primary },
+  queueBadge: { backgroundColor: Theme.colors.primary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  queueBadgeText: { color: "white", fontSize: 12, fontWeight: "800" },
 });

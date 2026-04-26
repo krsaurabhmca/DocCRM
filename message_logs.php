@@ -2,6 +2,13 @@
 $page_title = 'Message Logs';
 require_once 'db.php';
 
+session_start();
+
+if (!isset($_SESSION['clinic_id'])) {
+    die("Unauthorized Access");
+}
+$clinic_id = $_SESSION['clinic_id'];
+
 // Handle Export
 if (isset($_GET['export'])) {
     header('Content-Type: text/csv');
@@ -13,6 +20,7 @@ if (isset($_GET['export'])) {
                      FROM message_logs l 
                      JOIN patients p ON l.patient_id = p.id 
                      LEFT JOIN campaigns c ON l.campaign_id = c.id 
+                     WHERE l.clinic_id = $clinic_id
                      ORDER BY l.sent_at DESC";
     $export_result = mysqli_query($conn, $export_query);
     while ($row = mysqli_fetch_assoc($export_result)) {
@@ -34,7 +42,7 @@ require_once 'components/header.php';
 
 // Handle Filter
 $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET['status']) : '';
-$where = "WHERE 1=1";
+$where = "WHERE l.clinic_id = $clinic_id";
 if ($status_filter) {
     $where .= " AND l.status = '$status_filter'";
 }
@@ -47,8 +55,8 @@ $query = "SELECT l.*, p.name as patient_name, p.phone, c.title as campaign_title
           ORDER BY l.sent_at DESC LIMIT 100";
 $logs = mysqli_query($conn, $query);
 
-// Stats
-$stats = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total, SUM(CASE WHEN status='Sent' THEN 1 ELSE 0 END) as sent, SUM(CASE WHEN status='Failed' THEN 1 ELSE 0 END) as failed FROM message_logs"));
+// Stats (isolated by clinic)
+$stats = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total, SUM(CASE WHEN status='Sent' THEN 1 ELSE 0 END) as sent, SUM(CASE WHEN status='Failed' THEN 1 ELSE 0 END) as failed FROM message_logs WHERE clinic_id = $clinic_id"));
 ?>
 
 <div class="d-flex justify-between align-center mb-4">

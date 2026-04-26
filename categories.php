@@ -1,15 +1,16 @@
 <?php
+ob_start();
 $page_title = 'Patient Categories';
 require_once 'components/header.php';
 
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    mysqli_query($conn, "DELETE FROM categories WHERE id = $id");
+    mysqli_query($conn, "DELETE FROM categories WHERE id = $id AND clinic_id = $clinic_id");
     header("Location: categories.php");
     exit;
 }
 
-$categories = mysqli_query($conn, "SELECT * FROM categories ORDER BY name ASC");
+$categories = mysqli_query($conn, "SELECT * FROM categories WHERE clinic_id = $clinic_id ORDER BY name ASC");
 ?>
 
 <div class="d-flex justify-between align-center mb-4">
@@ -46,4 +47,6 @@ $categories = mysqli_query($conn, "SELECT * FROM categories ORDER BY name ASC");
     </div>
 </div>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

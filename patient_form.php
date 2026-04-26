@@ -1,20 +1,28 @@
 <?php
+ob_start();
 $page_title = isset($_GET['id']) ? 'Edit Patient Profile' : 'New Patient Registration';
 require_once 'components/header.php';
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-$name = $phone = $email = $age = $address = '';
+$name = $phone = $email = $age = $address = $gender = '';
+$doctor_id_val = 0;
 $patient_category_ids = [];
 $patient_disease_ids = [];
 
 if ($id > 0) {
-    $result = mysqli_query($conn, "SELECT * FROM patients WHERE id = $id");
+    $result = mysqli_query($conn, "SELECT * FROM patients WHERE id = $id AND clinic_id = $clinic_id");
     if ($row = mysqli_fetch_assoc($result)) {
         $name = $row['name'];
         $phone = $row['phone'];
         $email = $row['email'];
         $age = $row['age'];
+        $gender = $row['gender'];
+        $doctor_id_val = $row['doctor_id'];
         $address = $row['address'];
+    } else {
+        // Security check: patient doesn't belong to this clinic
+        header("Location: patients.php");
+        exit;
     }
     
     $c_result = mysqli_query($conn, "SELECT category_id FROM patient_categories WHERE patient_id = $id");
@@ -29,34 +37,37 @@ if ($id > 0) {
 }
 
 // Fetch lookups
-$categories = mysqli_query($conn, "SELECT * FROM categories ORDER BY name ASC");
-$diseases = mysqli_query($conn, "SELECT * FROM diseases ORDER BY name ASC");
+$categories = mysqli_query($conn, "SELECT * FROM categories WHERE clinic_id = $clinic_id ORDER BY name ASC");
+$diseases = mysqli_query($conn, "SELECT * FROM diseases WHERE clinic_id = $clinic_id ORDER BY name ASC");
+$doctors_list = mysqli_query($conn, "SELECT * FROM doctors WHERE clinic_id = $clinic_id AND is_active = 1 ORDER BY name ASC");
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $name = mysqli_real_escape_string($conn, $_POST['name']);
     $phone = mysqli_real_escape_string($conn, $_POST['phone']);
     $email = mysqli_real_escape_string($conn, $_POST['email']);
     $age = (int)$_POST['age'];
+    $gender = mysqli_real_escape_string($conn, $_POST['gender']);
+    $doctor_id_val = (int)$_POST['doctor_id'];
     $address = mysqli_real_escape_string($conn, $_POST['address']);
 
     if ($id > 0) {
-        $sql = "UPDATE patients SET name='$name', phone='$phone', email='$email', age=$age, address='$address' WHERE id=$id";
+        $sql = "UPDATE patients SET name='$name', phone='$phone', email='$email', age=$age, gender='$gender', doctor_id=$doctor_id_val, address='$address' WHERE id=$id AND clinic_id=$clinic_id";
     } else {
-        // Check for Unique (Name + Mobile)
-        $check_unique = mysqli_query($conn, "SELECT id FROM patients WHERE name = '$name' AND phone = '$phone'");
+        // Check for Unique (Name + Mobile) for this clinic
+        $check_unique = mysqli_query($conn, "SELECT id FROM patients WHERE name = '$name' AND phone = '$phone' AND clinic_id = $clinic_id");
         if (mysqli_num_rows($check_unique) > 0) {
-            $error = "Duplicate Entry: A patient with this Name and Mobile Number is already registered.";
+            $error = "Duplicate Entry: A patient with this Name and Mobile Number is already registered in your clinic.";
         } else {
             // Generate Unique Patient ID (Mobile + Suffix 0-9)
             $clean_phone = preg_replace('/[^0-9]/', '', $phone);
-            $check_existing = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE phone = '$phone'");
+            $check_existing = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE phone = '$phone' AND clinic_id = $clinic_id");
             $count = mysqli_fetch_assoc($check_existing)['cnt'];
             
             if ($count >= 10) {
                 $error = "Limit Reached: Maximum 10 patients are allowed for a single mobile number.";
             } else {
                 $patient_uid = $clean_phone . $count;
-                $sql = "INSERT INTO patients (patient_uid, name, phone, email, age, address) VALUES ('$patient_uid', '$name', '$phone', '$email', $age, '$address')";
+                $sql = "INSERT INTO patients (clinic_id, patient_uid, name, phone, email, age, gender, doctor_id, address) VALUES ($clinic_id, '$patient_uid', '$name', '$phone', '$email', $age, '$gender', $doctor_id_val, '$address')";
             }
         }
     }
@@ -129,8 +140,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <input type="text" name="phone" class="form-control" value="<?= htmlspecialchars($phone) ?>" placeholder="+91 00000 00000" required style="border-radius: 8px;">
                     </div>
                     <div class="form-group">
+                        <label class="form-label">Primary Doctor (Optional)</label>
+                        <select name="doctor_id" class="form-control" style="border-radius: 8px;">
+                            <option value="0">-- Select Doctor --</option>
+                            <?php mysqli_data_seek($doctors_list, 0); while($doc = mysqli_fetch_assoc($doctors_list)): ?>
+                                <option value="<?= $doc['id'] ?>" <?= $doctor_id_val == $doc['id'] ? 'selected' : '' ?>>Dr. <?= htmlspecialchars($doc['name']) ?> (<?= htmlspecialchars($doc['specialization']) ?>)</option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
                         <label class="form-label">Age (Years)</label>
                         <input type="number" name="age" class="form-control" value="<?= htmlspecialchars($age) ?>" placeholder="e.g. 25" style="border-radius: 8px;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Gender</label>
+                        <select name="gender" class="form-control" style="border-radius: 8px;">
+                            <option value="Male" <?= $gender == 'Male' ? 'selected' : '' ?>>Male</option>
+                            <option value="Female" <?= $gender == 'Female' ? 'selected' : '' ?>>Female</option>
+                            <option value="Other" <?= $gender == 'Other' ? 'selected' : '' ?>>Other</option>
+                        </select>
                     </div>
                 </div>
 
@@ -190,6 +221,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 .mt-4 { margin-top: 24px; }
 </style>
 
-<?php require_once 'components/footer.php'; ?>
-
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

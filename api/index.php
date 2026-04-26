@@ -34,16 +34,43 @@ if (!defined('INTERNAL_ACCESS')) {
     }
 }
 
+// Determine Clinic ID and Doctor ID from Token
+$token = $_SERVER['HTTP_X_TOKEN'] ?? $_REQUEST['token'] ?? '';
+$clinic_id = 0;
+$doctor_id = 0; // If logged in as a specific doctor
+if ($token) {
+    $token_data = json_decode(base64_decode($token), true);
+    if ($token_data) {
+        $clinic_id = isset($token_data['clinic_id']) ? (int)$token_data['clinic_id'] : 0;
+        $doctor_id = isset($token_data['doctor_id']) ? (int)$token_data['doctor_id'] : 0;
+    }
+}
+
+// If not provided in token, check session (for web-based API calls if any)
+if (!$clinic_id && isset($_SESSION['clinic_id'])) {
+    $clinic_id = $_SESSION['clinic_id'];
+}
+
 $action = $_GET['action'] ?? '';
+
+// For actions that require authentication, ensure clinic_id is set
+$public_actions = ['send_otp', 'verify_otp', 'clinic_signup', 'login_password'];
+if ($action && !in_array($action, $public_actions) && !$clinic_id) {
+    // If it's a cron access, it might have internal access defined
+    if (!defined('INTERNAL_ACCESS')) {
+        echo json_encode(['success' => false, 'message' => 'Clinic identification failed. Please re-login.']);
+        exit;
+    }
+}
 
 // AOC Portal WhatsApp Helper
 function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none', $mediaUrl = '')
 {
-    global $conn;
+    global $conn, $clinic_id;
 
     // 🔹 Fetch Settings
     $res = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings 
-        WHERE setting_key IN (
+        WHERE clinic_id = $clinic_id AND setting_key IN (
             'whatsapp_enabled', 
             'whatsapp_api_key', 
             'whatsapp_from_number', 
@@ -189,15 +216,15 @@ function send_aoc_whatsapp($to, $templateName, $params = [], $headerType = 'none
 
     // 🔹 Safe Patient Lookup
     $phone = mysqli_real_escape_string($conn, substr($to, -10));
-    $p_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM patients WHERE phone LIKE '%$phone%'"));
+    $p_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM patients WHERE phone LIKE '%$phone%' AND clinic_id = $clinic_id"));
 
     if ($p_res) {
         $p_id = $p_res['id'];
         $msg = mysqli_real_escape_string($conn, json_encode($payload));
         $status = $success ? 'Sent' : 'Failed';
 
-        mysqli_query($conn, "INSERT INTO message_logs (patient_id, message, status) 
-                            VALUES ($p_id, '$msg', '$status')");
+        mysqli_query($conn, "INSERT INTO message_logs (clinic_id, patient_id, message, status) 
+                            VALUES ($clinic_id, $p_id, '$msg', '$status')");
     }
 
     return [
@@ -218,15 +245,18 @@ if ($action) {
 
             // 🔹 Check if account exists in doctors table
             $phone_clean = substr(preg_replace('/[^0-9]/', '', $phone), -10);
-            $check = mysqli_query($conn, "SELECT id FROM doctors WHERE phone LIKE '%$phone_clean%' LIMIT 1");
+            $check = mysqli_query($conn, "SELECT id, clinic_id FROM doctors WHERE phone LIKE '%$phone_clean%' LIMIT 1");
 
             if (mysqli_num_rows($check) == 0) {
                 echo json_encode(['success' => false, 'message' => 'No Account found. Please contact administrator.']);
                 break;
             }
+            $doc_row = mysqli_fetch_assoc($check);
+            $doc_clinic_id = $doc_row['clinic_id'];
+            $doc_id = $doc_row['id'];
 
             $otp = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
-            mysqli_query($conn, "INSERT INTO login_otps (phone, otp) VALUES ('$phone', '$otp')");
+            mysqli_query($conn, "INSERT INTO login_otps (clinic_id, doctor_id, phone, otp) VALUES ($doc_clinic_id, $doc_id, '$phone', '$otp')");
 
             // Send via WhatsApp
             $params = ["Login OTP", "Your login OTP for DocCRM is $otp. Please do not share it with anyone.", "DocCRM Security"];
@@ -244,25 +274,31 @@ if ($action) {
                 break;
             }
 
-            $result = mysqli_query($conn, "SELECT id FROM login_otps WHERE phone = '$phone' AND otp = '$otp' AND status = 'Pending' AND created_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY id DESC LIMIT 1");
+            $result = mysqli_query($conn, "SELECT id, clinic_id, doctor_id FROM login_otps WHERE phone = '$phone' AND otp = '$otp' AND status = 'Pending' AND created_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY id DESC LIMIT 1");
             if ($row = mysqli_fetch_assoc($result)) {
                 $id = $row['id'];
+                $verified_clinic_id = $row['clinic_id'];
+                $verified_doc_id = $row['doctor_id'];
                 mysqli_query($conn, "UPDATE login_otps SET status = 'Verified' WHERE id = $id");
 
                 echo json_encode([
                     'success' => true,
                     'message' => 'Login successful',
-                    'token' => base64_encode($phone),
-                    'phone' => $phone
+                    'token' => base64_encode(json_encode(['phone' => $phone, 'clinic_id' => $verified_clinic_id, 'doctor_id' => $verified_doc_id, 'time' => time()])),
+                    'phone' => $phone,
+                    'clinic_id' => $verified_clinic_id,
+                    'doctor_id' => $verified_doc_id
                 ]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid or expired OTP']);
             }
             break;
         case 'get_stats':
-            $patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients"))['cnt'];
-            $campaigns = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM campaigns WHERE status IN ('Scheduled', 'Processing')"))['cnt'];
-            $followups = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE status = 'Scheduled'"))['cnt'];
+            $p_where = "clinic_id = $clinic_id" . ($doctor_id ? " AND doctor_id = $doctor_id" : "");
+            $patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE $p_where"))['cnt'];
+            $campaigns = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM campaigns WHERE clinic_id = $clinic_id AND status IN ('Scheduled', 'Processing')"))['cnt'];
+            $f_where = "clinic_id = $clinic_id AND status = 'Scheduled'" . ($doctor_id ? " AND doctor_id = $doctor_id" : "");
+            $followups = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE $f_where"))['cnt'];
 
             echo json_encode([
                 'success' => true,
@@ -276,9 +312,12 @@ if ($action) {
 
         case 'get_patients':
             $search = mysqli_real_escape_string($conn, $_GET['search'] ?? '');
-            $where = "";
+            $where = "WHERE clinic_id = $clinic_id";
+            if ($doctor_id) {
+                $where .= " AND doctor_id = $doctor_id";
+            }
             if ($search) {
-                $where = "WHERE name LIKE '%$search%' OR phone LIKE '%$search%' OR address LIKE '%$search%'";
+                $where .= " AND (name LIKE '%$search%' OR phone LIKE '%$search%' OR address LIKE '%$search%')";
             }
             $result = mysqli_query($conn, "SELECT * FROM patients $where ORDER BY name ASC LIMIT 50");
             $data = [];
@@ -290,7 +329,8 @@ if ($action) {
 
         case 'get_patient':
             $id = (int) $_GET['id'];
-            $result = mysqli_query($conn, "SELECT * FROM patients WHERE id = $id");
+            $where = "id = $id AND clinic_id = $clinic_id" . ($doctor_id ? " AND doctor_id = $doctor_id" : "");
+            $result = mysqli_query($conn, "SELECT * FROM patients WHERE $where");
             $patient = mysqli_fetch_assoc($result);
             if ($patient) {
                 // Get Category IDs
@@ -306,8 +346,8 @@ if ($action) {
                 while ($c = mysqli_fetch_assoc($cats_names))
                     $patient['categories'][] = $c['name'];
 
-                // Get History (Followups)
-                $hist_res = mysqli_query($conn, "SELECT * FROM followups WHERE patient_id = $id ORDER BY followup_date DESC");
+                // Get History (Followups - isolated by clinic)
+                $hist_res = mysqli_query($conn, "SELECT * FROM followups WHERE patient_id = $id AND clinic_id = $clinic_id ORDER BY followup_date DESC");
                 $patient['history'] = [];
                 while ($h = mysqli_fetch_assoc($hist_res)) {
                     $patient['history'][] = $h;
@@ -320,7 +360,7 @@ if ($action) {
             break;
 
         case 'get_categories':
-            $result = mysqli_query($conn, "SELECT c.*, (SELECT COUNT(*) FROM patient_categories pc WHERE pc.category_id = c.id) as patient_count FROM categories c ORDER BY name ASC");
+            $result = mysqli_query($conn, "SELECT c.*, (SELECT COUNT(*) FROM patient_categories pc JOIN patients p ON pc.patient_id = p.id WHERE pc.category_id = c.id AND p.clinic_id = $clinic_id) as patient_count FROM categories c WHERE c.clinic_id = $clinic_id ORDER BY name ASC");
             $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
@@ -329,7 +369,7 @@ if ($action) {
             break;
 
         case 'get_campaigns':
-            $result = mysqli_query($conn, "SELECT * FROM campaigns ORDER BY created_at DESC LIMIT 50");
+            $result = mysqli_query($conn, "SELECT * FROM campaigns WHERE clinic_id = $clinic_id ORDER BY created_at DESC LIMIT 50");
             $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
@@ -338,7 +378,7 @@ if ($action) {
             break;
 
         case 'get_diseases':
-            $result = mysqli_query($conn, "SELECT * FROM diseases ORDER BY name ASC");
+            $result = mysqli_query($conn, "SELECT * FROM diseases WHERE clinic_id = $clinic_id ORDER BY name ASC");
             $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
@@ -362,18 +402,18 @@ if ($action) {
                 $category_ids = $input['category_ids'] ?? [];
 
                 if ($id == 0) {
-                    // Check for Unique (Name + Mobile)
-                    $check_unique = mysqli_query($conn, "SELECT id FROM patients WHERE name = '$name' AND phone = '$phone'");
+                    // Check for Unique (Name + Mobile) for this clinic
+                    $check_unique = mysqli_query($conn, "SELECT id FROM patients WHERE name = '$name' AND phone = '$phone' AND clinic_id = $clinic_id");
                     if (mysqli_num_rows($check_unique) > 0) {
-                        echo json_encode(['success' => false, 'message' => 'Duplicate Entry: A patient with this Name and Mobile Number is already registered.']);
+                        echo json_encode(['success' => false, 'message' => 'Duplicate Entry: A patient with this Name and Mobile Number is already registered in your clinic.']);
                         exit;
                     }
 
                     // Check New Patient Limit
-                    $max_new = (int) mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'max_new_patients'"))['setting_value'];
+                    $max_new = (int) mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE clinic_id = $clinic_id AND setting_key = 'max_new_patients'"))['setting_value'];
                     if ($max_new > 0) {
                         $today = date('Y-m-d');
-                        $current_new = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE DATE(created_at) = '$today'"))['cnt'];
+                        $current_new = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE clinic_id = $clinic_id AND DATE(created_at) = '$today'"))['cnt'];
                         if ($current_new >= $max_new) {
                             echo json_encode(['success' => false, 'message' => "Daily limit for New Patients reached ($max_new)."]);
                             exit;
@@ -382,7 +422,7 @@ if ($action) {
 
                     // Generate Unique Patient ID (Mobile + Suffix 0-9)
                     $clean_phone = preg_replace('/[^0-9]/', '', $phone);
-                    $check_existing = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE phone = '$phone'");
+                    $check_existing = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE phone = '$phone' AND clinic_id = $clinic_id");
                     $count = mysqli_fetch_assoc($check_existing)['cnt'];
 
                     if ($count >= 10) {
@@ -391,9 +431,9 @@ if ($action) {
                     }
 
                     $patient_uid = $clean_phone . $count;
-                    $sql = "INSERT INTO patients (patient_uid, name, phone, email, gender, father_name, age, age_unit, address) VALUES ('$patient_uid', '$name', '$phone', '$email', '$gender', '$father', $age, '$age_unit', '$address')";
+                    $sql = "INSERT INTO patients (clinic_id, patient_uid, name, phone, email, gender, father_name, age, age_unit, address) VALUES ($clinic_id, '$patient_uid', '$name', '$phone', '$email', '$gender', '$father', $age, '$age_unit', '$address')";
                 } else {
-                    $sql = "UPDATE patients SET name='$name', phone='$phone', email='$email', gender='$gender', father_name='$father', age=$age, age_unit='$age_unit', address='$address' WHERE id=$id";
+                    $sql = "UPDATE patients SET name='$name', phone='$phone', email='$email', gender='$gender', father_name='$father', age=$age, age_unit='$age_unit', address='$address' WHERE id=$id AND clinic_id=$clinic_id";
                 }
 
                 if (mysqli_query($conn, $sql)) {
@@ -419,7 +459,7 @@ if ($action) {
 
                     // AOC WhatsApp Integration: Welcome Message
                     if ($id == 0) {
-                        $welcome_tpl = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'welcome_template'"))['setting_value'] ?? 'welcome_msg';
+                        $welcome_tpl = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE clinic_id = $clinic_id AND setting_key = 'welcome_template'"))['setting_value'] ?? 'welcome_msg';
                         send_aoc_whatsapp($phone, $welcome_tpl, [$name]);
                     }
 
@@ -432,7 +472,7 @@ if ($action) {
 
         case 'delete_patient':
             $id = (int) $_GET['id'];
-            if (mysqli_query($conn, "DELETE FROM patients WHERE id = $id")) {
+            if (mysqli_query($conn, "DELETE FROM patients WHERE id = $id AND clinic_id = $clinic_id")) {
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => mysqli_error($conn)]);
@@ -440,7 +480,7 @@ if ($action) {
             break;
 
         case 'get_doctors':
-            $result = mysqli_query($conn, "SELECT * FROM doctors ORDER BY name ASC");
+            $result = mysqli_query($conn, "SELECT * FROM doctors WHERE clinic_id = $clinic_id ORDER BY name ASC");
             $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
@@ -461,9 +501,9 @@ if ($action) {
                 $email = mysqli_real_escape_string($conn, $input['email'] ?? '');
 
                 if ($id > 0) {
-                    $sql = "UPDATE doctors SET name='$name', specialization='$spec', qualification='$qual', experience=$exp, phone='$phone', email='$email' WHERE id=$id";
+                    $sql = "UPDATE doctors SET name='$name', specialization='$spec', qualification='$qual', experience=$exp, phone='$phone', email='$email' WHERE id=$id AND clinic_id=$clinic_id";
                 } else {
-                    $sql = "INSERT INTO doctors (name, specialization, qualification, experience, phone, email) VALUES ('$name', '$spec', '$qual', $exp, '$phone', '$email')";
+                    $sql = "INSERT INTO doctors (clinic_id, name, specialization, qualification, experience, phone, email) VALUES ($clinic_id, '$name', '$spec', '$qual', $exp, '$phone', '$email')";
                 }
 
                 if (mysqli_query($conn, $sql)) {
@@ -476,7 +516,7 @@ if ($action) {
 
         case 'get_category_patients':
             $id = (int) $_GET['id'];
-            $result = mysqli_query($conn, "SELECT p.* FROM patients p JOIN patient_categories pc ON p.id = pc.patient_id WHERE pc.category_id = $id ORDER BY p.name ASC");
+            $result = mysqli_query($conn, "SELECT p.* FROM patients p JOIN patient_categories pc ON p.id = pc.patient_id WHERE pc.category_id = $id AND p.clinic_id = $clinic_id ORDER BY p.name ASC");
             $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
@@ -490,7 +530,7 @@ if ($action) {
                 echo json_encode(['success' => true, 'count' => 0]);
                 exit;
             }
-            $sql = "SELECT COUNT(DISTINCT patient_id) as cnt FROM patient_categories WHERE category_id IN ($ids)";
+            $sql = "SELECT COUNT(DISTINCT pc.patient_id) as cnt FROM patient_categories pc JOIN patients p ON pc.patient_id = p.id WHERE pc.category_id IN ($ids) AND p.clinic_id = $clinic_id";
             $res = mysqli_fetch_assoc(mysqli_query($conn, $sql));
             echo json_encode(['success' => true, 'count' => (int) $res['cnt']]);
             break;
@@ -502,9 +542,9 @@ if ($action) {
                 $id = isset($input['id']) ? (int) $input['id'] : 0;
                 $name = mysqli_real_escape_string($conn, $input['name']);
                 if ($id > 0) {
-                    $sql = "UPDATE categories SET name='$name' WHERE id=$id";
+                    $sql = "UPDATE categories SET name='$name' WHERE id=$id AND clinic_id=$clinic_id";
                 } else {
-                    $sql = "INSERT INTO categories (name) VALUES ('$name')";
+                    $sql = "INSERT INTO categories (clinic_id, name) VALUES ($clinic_id, '$name')";
                 }
                 if (mysqli_query($conn, $sql)) {
                     echo json_encode(['success' => true]);
@@ -539,13 +579,13 @@ if ($action) {
 
             if ($name && $part2) {
                 if ($is_default == 1) {
-                    mysqli_query($conn, "UPDATE templates SET is_default = 0");
+                    mysqli_query($conn, "UPDATE templates SET is_default = 0 WHERE clinic_id = $clinic_id");
                 }
 
                 if ($id > 0) {
-                    $sql = "UPDATE templates SET name='$name', content_type='$type', content_part1='$part1', content_part2='$part2', content_part3='$part3', media_url='$media_url', is_default=$is_default WHERE id=$id";
+                    $sql = "UPDATE templates SET name='$name', content_type='$type', content_part1='$part1', content_part2='$part2', content_part3='$part3', media_url='$media_url', is_default=$is_default WHERE id=$id AND clinic_id=$clinic_id";
                 } else {
-                    $sql = "INSERT INTO templates (name, content_type, content_part1, content_part2, content_part3, media_url, is_default) VALUES ('$name', '$type', '$part1', '$part2', '$part3', '$media_url', $is_default)";
+                    $sql = "INSERT INTO templates (clinic_id, name, content_type, content_part1, content_part2, content_part3, media_url, is_default) VALUES ($clinic_id, '$name', '$type', '$part1', '$part2', '$part3', '$media_url', $is_default)";
                 }
 
                 if (mysqli_query($conn, $sql)) {
@@ -560,7 +600,7 @@ if ($action) {
 
         case 'delete_category':
             $id = (int) $_GET['id'];
-            if (mysqli_query($conn, "DELETE FROM categories WHERE id = $id")) {
+            if (mysqli_query($conn, "DELETE FROM categories WHERE id = $id AND clinic_id = $clinic_id")) {
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => mysqli_error($conn)]);
@@ -569,7 +609,7 @@ if ($action) {
 
         case 'delete_campaign':
             $id = (int) $_GET['id'];
-            if (mysqli_query($conn, "DELETE FROM campaigns WHERE id = $id")) {
+            if (mysqli_query($conn, "DELETE FROM campaigns WHERE id = $id AND clinic_id = $clinic_id")) {
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => mysqli_error($conn)]);
@@ -577,7 +617,7 @@ if ($action) {
             break;
 
         case 'get_templates':
-            $result = mysqli_query($conn, "SELECT * FROM templates ORDER BY name ASC");
+            $result = mysqli_query($conn, "SELECT * FROM templates WHERE clinic_id = $clinic_id ORDER BY name ASC");
             $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
@@ -587,7 +627,7 @@ if ($action) {
 
         case 'get_template':
             $id = (int) $_GET['id'];
-            $result = mysqli_query($conn, "SELECT * FROM templates WHERE id = $id");
+            $result = mysqli_query($conn, "SELECT * FROM templates WHERE id = $id AND clinic_id = $clinic_id");
             $template = mysqli_fetch_assoc($result);
             if ($template) {
                 echo json_encode(['success' => true, 'data' => $template]);
@@ -597,7 +637,7 @@ if ($action) {
             break;
 
         case 'get_default_template':
-            $result = mysqli_query($conn, "SELECT * FROM templates WHERE is_default = 1 LIMIT 1");
+            $result = mysqli_query($conn, "SELECT * FROM templates WHERE is_default = 1 AND clinic_id = $clinic_id LIMIT 1");
             $template = mysqli_fetch_assoc($result);
             if ($template) {
                 echo json_encode(['success' => true, 'data' => $template]);
@@ -608,7 +648,7 @@ if ($action) {
 
         case 'delete_template':
             $id = (int) $_GET['id'];
-            if (mysqli_query($conn, "DELETE FROM templates WHERE id = $id")) {
+            if (mysqli_query($conn, "DELETE FROM templates WHERE id = $id AND clinic_id = $clinic_id")) {
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => mysqli_error($conn)]);
@@ -621,7 +661,7 @@ if ($action) {
                                        (DATE(p.created_at) = '$date') as is_new 
                                        FROM followups f 
                                        JOIN patients p ON f.patient_id = p.id 
-                                       WHERE f.followup_date = '$date' 
+                                       WHERE f.followup_date = '$date' AND f.clinic_id = $clinic_id
                                        ORDER BY f.id ASC");
             $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
@@ -632,7 +672,7 @@ if ($action) {
 
         case 'delete_followup':
             $id = (int) $_GET['id'];
-            if (mysqli_query($conn, "DELETE FROM followups WHERE id = $id")) {
+            if (mysqli_query($conn, "DELETE FROM followups WHERE id = $id AND clinic_id = $clinic_id")) {
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => mysqli_error($conn)]);
@@ -641,7 +681,7 @@ if ($action) {
 
         case 'mark_followup_done':
             $id = (int) $_GET['id'];
-            if (mysqli_query($conn, "UPDATE followups SET status = 'Completed' WHERE id = $id")) {
+            if (mysqli_query($conn, "UPDATE followups SET status = 'Completed' WHERE id = $id AND clinic_id = $clinic_id")) {
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => mysqli_error($conn)]);
@@ -659,20 +699,20 @@ if ($action) {
                 $notes = mysqli_real_escape_string($conn, $input['notes'] ?? '');
 
                 // Check Old Patient Limit
-                $max_old = (int) mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'max_old_patients'"))['setting_value'];
+                $max_old = (int) mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE clinic_id = $clinic_id AND setting_key = 'max_old_patients'"))['setting_value'];
                 if ($max_old > 0) {
-                    $current_old = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE followup_date = '$date'"))['cnt'];
+                    $current_old = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE clinic_id = $clinic_id AND followup_date = '$date'"))['cnt'];
                     if ($current_old >= $max_old) {
                         echo json_encode(['success' => false, 'message' => "Daily limit for Old Patients reached ($max_old) for this date."]);
                         exit;
                     }
                 }
 
-                $sql = "INSERT INTO followups (patient_id, followup_date, followup_type, fee, notes) VALUES ($patient_id, '$date', '$type', $fee, '$notes')";
+                $sql = "INSERT INTO followups (clinic_id, patient_id, followup_date, followup_type, fee, notes) VALUES ($clinic_id, $patient_id, '$date', '$type', $fee, '$notes')";
                 if (mysqli_query($conn, $sql)) {
                     // AOC WhatsApp Integration: Appointment Reminder
-                    $reminder_tpl = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'reminder_template'"))['setting_value'] ?? 'appointment_reminder';
-                    $p_data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT name, phone FROM patients WHERE id = $patient_id"));
+                    $reminder_tpl = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE clinic_id = $clinic_id AND setting_key = 'reminder_template'"))['setting_value'] ?? 'appointment_reminder';
+                    $p_data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT name, phone FROM patients WHERE id = $patient_id AND clinic_id = $clinic_id"));
                     if ($p_data) {
                         send_aoc_whatsapp($p_data['phone'], $reminder_tpl, [$p_data['name'], $date, $type]);
                     }
@@ -685,7 +725,7 @@ if ($action) {
             break;
 
         case 'get_reminder_counts':
-            $result = mysqli_query($conn, "SELECT followup_date as date, COUNT(*) as count FROM followups GROUP BY followup_date");
+            $result = mysqli_query($conn, "SELECT followup_date as date, COUNT(*) as count FROM followups WHERE clinic_id = $clinic_id GROUP BY followup_date");
             $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[$row['date']] = [
@@ -716,13 +756,13 @@ if ($action) {
                 exit;
             }
 
-            $clinic_name = safe_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name'"))['setting_value'] ?? '';
-            $clinic_address = safe_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address'"))['setting_value'] ?? '';
+            $clinic_name = safe_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE clinic_id = $clinic_id AND setting_key = 'clinic_name'"))['setting_value'] ?? '';
+            $clinic_address = safe_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE clinic_id = $clinic_id AND setting_key = 'clinic_address'"))['setting_value'] ?? '';
             $clinic_info = "*$clinic_name*\n$clinic_address";
 
             $sql = "SELECT DISTINCT p.* FROM patients p 
                 JOIN patient_categories pc ON p.id = pc.patient_id 
-                WHERE pc.category_id IN ($category_ids)";
+                WHERE pc.category_id IN ($category_ids) AND p.clinic_id = $clinic_id";
             $res = mysqli_query($conn, $sql);
             $count = 0;
 
@@ -748,10 +788,10 @@ if ($action) {
                 $v_esc = mysqli_real_escape_string($conn, $variables);
                 $m_esc = mysqli_real_escape_string($conn, $mediaUrl);
 
-                $defaultTpl = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'whatsapp_default_template'"))['setting_value'] ?? 'info_update_43';
+                $defaultTpl = mysqli_fetch_assoc(mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE clinic_id = $clinic_id AND setting_key = 'whatsapp_default_template'"))['setting_value'] ?? 'info_update_43';
                 $tpl_name = mysqli_real_escape_string($conn, $template['aoc_template_name'] ?: $defaultTpl);
-                $q_sql = "INSERT INTO message_queue (to_number, template_name, variables, header_type, media_url, scheduled_at) 
-                      VALUES ('$to', '$tpl_name', '$v_esc', '$type', '$m_esc', '$scheduled_at')";
+                $q_sql = "INSERT INTO message_queue (clinic_id, to_number, template_name, variables, header_type, media_url, scheduled_at) 
+                      VALUES ($clinic_id, '$to', '$tpl_name', '$v_esc', '$type', '$m_esc', '$scheduled_at')";
                 mysqli_query($conn, $q_sql);
                 $count++;
             }
@@ -780,19 +820,21 @@ if ($action) {
             break;
 
         case 'get_dashboard_stats':
-            $patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM patients"))['count'];
-            $categories = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM categories"))['count'];
-            $templates = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM templates"))['count'];
+            $p_where = "clinic_id = $clinic_id" . ($doctor_id ? " AND doctor_id = $doctor_id" : "");
+            $patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM patients WHERE $p_where"))['count'];
+            $categories = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM categories WHERE clinic_id = $clinic_id"))['count'];
+            $templates = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM templates WHERE clinic_id = $clinic_id"))['count'];
 
             $today = date('Y-m-d');
-            $reminders = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM followups WHERE followup_date = '$today'"))['count'];
+            $f_where = "followup_date = '$today' AND clinic_id = $clinic_id" . ($doctor_id ? " AND doctor_id = $doctor_id" : "");
+            $reminders = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM followups WHERE $f_where"))['count'];
 
             // Revenue Today
-            $fees_today = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE followup_date = '$today'"))['total'] ?? 0;
+            $fees_today = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE $f_where"))['total'] ?? 0;
 
             // New vs Old (New = registered in last 7 days)
             $seven_days_ago = date('Y-m-d', strtotime('-7 days'));
-            $new_patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM patients WHERE created_at >= '$seven_days_ago'"))['count'];
+            $new_patients = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM patients WHERE created_at >= '$seven_days_ago' AND clinic_id = $clinic_id"))['count'];
             $old_patients = $patients - $new_patients;
 
             // Patient growth (Actual data for last 7 days)
@@ -801,7 +843,7 @@ if ($action) {
             for ($i = 6; $i >= 0; $i--) {
                 $d = date('Y-m-d', strtotime("-$i days"));
                 $label = date('D', strtotime($d));
-                $cnt = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM patients WHERE DATE(created_at) = '$d'"))['count'];
+                $cnt = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM patients WHERE DATE(created_at) = '$d' AND clinic_id = $clinic_id"))['count'];
                 $growth_data[] = (int) $cnt;
                 $growth_labels[] = $label;
             }
@@ -829,20 +871,21 @@ if ($action) {
             $today = date('Y-m-d');
             $this_month = date('Y-m-01');
 
-            // Stats for the selected range
-            $range_rev = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE followup_date BETWEEN '$from' AND '$to'"))['total'] ?? 0;
+            // Stats for the selected range (isolated by clinic/doctor)
+            $f_where_base = "clinic_id = $clinic_id" . ($doctor_id ? " AND doctor_id = $doctor_id" : "");
+            $range_rev = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE $f_where_base AND followup_date BETWEEN '$from' AND '$to'"))['total'] ?? 0;
 
-            // Overall context
-            $month_rev = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE followup_date >= '$this_month'"))['total'] ?? 0;
-            $total_rev = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups"))['total'] ?? 0;
+            // Overall context (isolated by clinic/doctor)
+            $month_rev = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE $f_where_base AND followup_date >= '$this_month'"))['total'] ?? 0;
+            $total_rev = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE $f_where_base"))['total'] ?? 0;
 
-            $recent = mysqli_query($conn, "SELECT f.*, p.name as patient_name, p.phone as patient_phone FROM followups f JOIN patients p ON f.patient_id = p.id WHERE f.fee > 0 AND f.followup_date BETWEEN '$from' AND '$to' ORDER BY f.followup_date DESC");
+            $recent = mysqli_query($conn, "SELECT f.*, p.name as patient_name, p.phone as patient_phone FROM followups f JOIN patients p ON f.patient_id = p.id WHERE f.$f_where_base AND f.fee > 0 AND f.followup_date BETWEEN '$from' AND '$to' ORDER BY f.followup_date DESC");
             $history = [];
             while ($r = mysqli_fetch_assoc($recent))
                 $history[] = $r;
 
-            // Revenue by type in range
-            $types = mysqli_query($conn, "SELECT followup_type, SUM(fee) as total FROM followups WHERE followup_date BETWEEN '$from' AND '$to' GROUP BY followup_type");
+            // Revenue by type in range (isolated by clinic)
+            $types = mysqli_query($conn, "SELECT followup_type, SUM(fee) as total FROM followups WHERE clinic_id = $clinic_id AND followup_date BETWEEN '$from' AND '$to' GROUP BY followup_type");
             $type_data = [];
             while ($t = mysqli_fetch_assoc($types))
                 $type_data[] = $t;
@@ -872,7 +915,7 @@ if ($action) {
             $query = "SELECT f.id, f.followup_date, p.name, p.phone, f.followup_type, f.fee, f.notes 
                   FROM followups f 
                   JOIN patients p ON f.patient_id = p.id 
-                  WHERE f.fee > 0 AND f.followup_date BETWEEN '$from' AND '$to' 
+                  WHERE f.clinic_id = $clinic_id AND f.fee > 0 AND f.followup_date BETWEEN '$from' AND '$to' 
                   ORDER BY f.followup_date DESC";
 
             $rows = mysqli_query($conn, $query);
@@ -884,7 +927,7 @@ if ($action) {
             break;
 
         case 'get_app_settings':
-            $result = mysqli_query($conn, "SELECT * FROM app_settings");
+            $result = mysqli_query($conn, "SELECT * FROM app_settings WHERE clinic_id = $clinic_id");
             $settings = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $settings[$row['setting_key']] = $row['setting_value'];
@@ -899,7 +942,7 @@ if ($action) {
                 foreach ($input as $key => $value) {
                     $key = mysqli_real_escape_string($conn, $key);
                     $value = mysqli_real_escape_string($conn, $value);
-                    mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES ('$key', '$value') ON DUPLICATE KEY UPDATE setting_value='$value'");
+                    mysqli_query($conn, "INSERT INTO app_settings (clinic_id, setting_key, setting_value) VALUES ($clinic_id, '$key', '$value') ON DUPLICATE KEY UPDATE setting_value='$value'");
                 }
                 echo json_encode(['success' => true]);
             } else {
@@ -916,7 +959,8 @@ if ($action) {
                 $status = mysqli_real_escape_string($conn, $input['status']);
                 $notes = mysqli_real_escape_string($conn, $input['notes'] ?? '');
 
-                $sql = "UPDATE followups SET status='$status', notes='$notes' WHERE id=$id";
+                $where = "id=$id AND clinic_id=$clinic_id" . ($doctor_id ? " AND doctor_id = $doctor_id" : "");
+                $sql = "UPDATE followups SET status='$status', notes='$notes' WHERE $where";
                 if (mysqli_query($conn, $sql)) {
                     echo json_encode(['success' => true]);
                 } else {
@@ -926,12 +970,84 @@ if ($action) {
             break;
 
         case 'get_logs':
-            $result = mysqli_query($conn, "SELECT l.*, p.name as patient_name FROM message_logs l JOIN patients p ON l.patient_id = p.id ORDER BY l.sent_at DESC LIMIT 20");
+            $result = mysqli_query($conn, "SELECT l.*, p.name as patient_name FROM message_logs l JOIN patients p ON l.patient_id = p.id WHERE l.clinic_id = $clinic_id ORDER BY l.sent_at DESC LIMIT 20");
             $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
             }
             echo json_encode(['success' => true, 'data' => $data]);
+            break;
+
+        case 'clinic_signup':
+            $name = mysqli_real_escape_string($conn, $_POST['name'] ?? '');
+            $email = mysqli_real_escape_string($conn, $_POST['email'] ?? '');
+            $phone = mysqli_real_escape_string($conn, $_POST['phone'] ?? '');
+            $password = password_hash($_POST['password'] ?? '123456', PASSWORD_DEFAULT);
+            $address = mysqli_real_escape_string($conn, $_POST['address'] ?? '');
+
+            if (!$name || !$email || !$phone) {
+                echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+                break;
+            }
+
+            // Check if email/phone already exists
+            $check = mysqli_query($conn, "SELECT id FROM clinics WHERE email = '$email' OR phone = '$phone'");
+            if (mysqli_num_rows($check) > 0) {
+                echo json_encode(['success' => false, 'message' => 'Email or Phone already registered']);
+                break;
+            }
+
+            if (mysqli_query($conn, "INSERT INTO clinics (name, email, phone, password, address) VALUES ('$name', '$email', '$phone', '$password', '$address')")) {
+                $new_clinic_id = mysqli_insert_id($conn);
+                
+                // Create admin user for this clinic
+                $username = strtolower(str_replace(' ', '', $name)) . "_admin";
+                mysqli_query($conn, "INSERT INTO admins (clinic_id, username, password) VALUES ($new_clinic_id, '$username', '$password')");
+
+                echo json_encode(['success' => true, 'message' => 'Clinic registered successfully', 'clinic_id' => $new_clinic_id]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Registration failed']);
+            }
+            break;
+
+        case 'login_password':
+            $identity = mysqli_real_escape_string($conn, $_POST['identity'] ?? '');
+            $password = $_POST['password'] ?? '';
+
+            if (!$identity || !$password) {
+                echo json_encode(['success' => false, 'message' => 'Identity and password required']);
+                break;
+            }
+
+            // Check Clinics table (Primary SaaS identifier)
+            $res = mysqli_query($conn, "SELECT id, name, phone, password FROM clinics WHERE email = '$identity' OR phone = '$identity'");
+            $user = mysqli_fetch_assoc($res);
+
+            if ($user && password_verify($password, $user['password'])) {
+                $token = base64_encode(json_encode([
+                    'clinic_id' => (int)$user['id'],
+                    'name' => $user['name'],
+                    'phone' => $user['phone'],
+                    'doctor_id' => 0 // Admin login
+                ]));
+                echo json_encode(['success' => true, 'token' => $token, 'phone' => $user['phone'], 'name' => $user['name']]);
+            } else {
+                // Check Doctors table (Secondary SaaS identifier)
+                $res = mysqli_query($conn, "SELECT id, clinic_id, name, phone, password FROM doctors WHERE email = '$identity' OR phone = '$identity'");
+                $doc = mysqli_fetch_assoc($res);
+                
+                if ($doc && password_verify($password, $doc['password'])) {
+                    $token = base64_encode(json_encode([
+                        'clinic_id' => (int)$doc['clinic_id'],
+                        'name' => $doc['name'],
+                        'phone' => $doc['phone'],
+                        'doctor_id' => (int)$doc['id']
+                    ]));
+                    echo json_encode(['success' => true, 'token' => $token, 'phone' => $doc['phone'], 'name' => $doc['name']]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
+                }
+            }
             break;
 
         default:

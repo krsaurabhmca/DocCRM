@@ -1,4 +1,5 @@
 <?php
+ob_start();
 $page_title = isset($_GET['id']) ? 'Edit Reminder' : 'Add Reminder';
 require_once 'components/header.php';
 
@@ -6,18 +7,21 @@ $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $patient_id = $document_name = $due_date = $status = $remarks = '';
 
 if ($id > 0) {
-    $result = mysqli_query($conn, "SELECT * FROM reminders WHERE id = $id");
+    $result = mysqli_query($conn, "SELECT * FROM reminders WHERE id = $id AND clinic_id = $clinic_id");
     if ($row = mysqli_fetch_assoc($result)) {
         $patient_id = $row['patient_id'];
         $document_name = $row['document_name'];
         $due_date = $row['due_date'];
         $status = $row['status'];
         $remarks = $row['remarks'];
+    } else {
+        header("Location: reminders.php");
+        exit;
     }
 }
 
-// Fetch all patients for dropdown
-$patients = mysqli_query($conn, "SELECT id, name FROM patients ORDER BY name ASC");
+// Fetch all patients for dropdown (isolated by clinic)
+$patients = mysqli_query($conn, "SELECT id, name FROM patients WHERE clinic_id = $clinic_id ORDER BY name ASC");
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $patient_id = (int)$_POST['patient_id'];
@@ -27,9 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $remarks = mysqli_real_escape_string($conn, $_POST['remarks']);
 
     if ($id > 0) {
-        $sql = "UPDATE reminders SET patient_id=$patient_id, document_name='$document_name', due_date='$due_date', status='$status', remarks='$remarks' WHERE id=$id";
+        $sql = "UPDATE reminders SET patient_id=$patient_id, document_name='$document_name', due_date='$due_date', status='$status', remarks='$remarks' WHERE id=$id AND clinic_id=$clinic_id";
     } else {
-        $sql = "INSERT INTO reminders (patient_id, document_name, due_date, status, remarks) VALUES ($patient_id, '$document_name', '$due_date', '$status', '$remarks')";
+        $sql = "INSERT INTO reminders (clinic_id, patient_id, document_name, due_date, status, remarks) VALUES ($clinic_id, $patient_id, '$document_name', '$due_date', '$status', '$remarks')";
     }
 
     if (mysqli_query($conn, $sql)) {
@@ -96,4 +100,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
 </div>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

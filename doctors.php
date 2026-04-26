@@ -1,16 +1,17 @@
 <?php
+ob_start();
 $page_title = 'Medical Team Management';
 require_once 'components/header.php';
 
 // Handle deletion
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    mysqli_query($conn, "DELETE FROM doctors WHERE id = $id");
+    mysqli_query($conn, "DELETE FROM doctors WHERE id = $id AND clinic_id = $clinic_id");
     header("Location: doctors.php");
     exit;
 }
 
-$query = "SELECT * FROM doctors ORDER BY name ASC";
+$query = "SELECT * FROM doctors WHERE clinic_id = $clinic_id ORDER BY name ASC";
 $doctors = mysqli_query($conn, $query);
 ?>
 
@@ -76,4 +77,6 @@ $doctors = mysqli_query($conn, $query);
     </div>
 </div>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

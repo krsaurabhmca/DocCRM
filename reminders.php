@@ -1,16 +1,17 @@
 <?php
+ob_start();
 $page_title = 'Documents & Reminders';
 require_once 'components/header.php';
 
 // Handle deletion
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    mysqli_query($conn, "DELETE FROM reminders WHERE id = $id");
+    mysqli_query($conn, "DELETE FROM reminders WHERE id = $id AND clinic_id = $clinic_id");
     header("Location: reminders.php");
     exit;
 }
 
-$query = "SELECT r.*, p.name as patient_name FROM reminders r JOIN patients p ON r.patient_id = p.id ORDER BY r.due_date ASC";
+$query = "SELECT r.*, p.name as patient_name FROM reminders r JOIN patients p ON r.patient_id = p.id WHERE r.clinic_id = $clinic_id ORDER BY r.due_date ASC";
 $reminders = mysqli_query($conn, $query);
 ?>
 
@@ -54,4 +55,6 @@ $reminders = mysqli_query($conn, $query);
     </div>
 </div>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

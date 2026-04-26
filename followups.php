@@ -1,11 +1,12 @@
 <?php
+ob_start();
 $page_title = 'Patient Appointments Calendar';
 require_once 'components/header.php';
 
 // Handle deletion
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    mysqli_query($conn, "DELETE FROM followups WHERE id = $id");
+    mysqli_query($conn, "DELETE FROM followups WHERE id = $id AND clinic_id = $clinic_id");
     header("Location: followups.php?date=" . ($_GET['date'] ?? ''));
     exit;
 }
@@ -14,16 +15,16 @@ $selected_date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 $month = date('m', strtotime($selected_date));
 $year = date('Y', strtotime($selected_date));
 
-// Fetch followup counts for the month for calendar dots
-$counts_query = "SELECT followup_date, COUNT(*) as cnt FROM followups WHERE MONTH(followup_date) = '$month' AND YEAR(followup_date) = '$year' GROUP BY followup_date";
+// Fetch followup counts for the month for calendar dots (isolated by clinic)
+$counts_query = "SELECT followup_date, COUNT(*) as cnt FROM followups WHERE clinic_id = $clinic_id AND MONTH(followup_date) = '$month' AND YEAR(followup_date) = '$year' GROUP BY followup_date";
 $counts_res = mysqli_query($conn, $counts_query);
 $event_dates = [];
 while($row = mysqli_fetch_assoc($counts_res)) {
     $event_dates[$row['followup_date']] = $row['cnt'];
 }
 
-// Fetch patients for the selected date
-$query = "SELECT f.*, p.name as patient_name, p.phone, p.gender FROM followups f JOIN patients p ON f.patient_id = p.id WHERE f.followup_date = '$selected_date' ORDER BY f.id ASC";
+// Fetch patients for the selected date (isolated by clinic)
+$query = "SELECT f.*, p.name as patient_name, p.phone, p.gender FROM followups f JOIN patients p ON f.patient_id = p.id WHERE f.clinic_id = $clinic_id AND f.followup_date = '$selected_date' ORDER BY f.id ASC";
 $followups = mysqli_query($conn, $query);
 
 // Calendar Logic
@@ -131,4 +132,6 @@ $next_month = date('Y-m-d', strtotime("$year-$month-01 +1 month"));
     </div>
 </div>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

@@ -1,11 +1,19 @@
 export const Theme = {
   colors: {
     primary: "#0284C7",
-    secondary: "#0C4A6E",
+    primaryLight: "#E0F2FE",
+    secondary: "#0F172A",
     success: "#059669",
+    successLight: "#DCFCE7",
     danger: "#E11D48",
+    dangerLight: "#FFE4E6",
     warning: "#EA580C",
+    warningLight: "#FFEDD5",
     info: "#0891B2",
+    sky: "#0EA5E9",
+    indigo: "#6366F1",
+    rose: "#F43F5E",
+    slate: "#475569",
     background: "#F8FAFC",
     surface: "#FFFFFF",
     border: "#E2E8F0",
@@ -40,3 +48,5 @@ export const Theme = {
     small: { fontSize: 11, fontWeight: "600" as const },
   }
 };
+
+export default Theme;

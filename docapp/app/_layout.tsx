@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator, View } from "react-native";
+import Theme from "../styles/Theme";
 
 // 🔹 Auth Context for global state
 const AuthContext = createContext<{
@@ -41,7 +42,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isReady) return;
 
-    const inAuthGroup = segments[0] === "login";
+    const inAuthGroup = segments[0] === "login" || segments[0] === "signup";
 
     if (!isAuthenticated && !inAuthGroup) {
       // Redirect to login if not authenticated
@@ -65,7 +66,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <Stack 
           screenOptions={{ 
-            headerStyle: { backgroundColor: "#0284C7" },
+            headerStyle: { backgroundColor: Theme.colors.primary },
             headerTintColor: "#FFFFFF",
             headerTitleStyle: { fontWeight: "700", fontSize: 18 },
             headerShadowVisible: false,

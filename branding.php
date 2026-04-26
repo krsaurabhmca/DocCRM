@@ -8,19 +8,19 @@ if (isset($_POST['update_settings'])) {
     foreach ($_POST['settings'] as $key => $value) {
         $key = mysqli_real_escape_string($conn, $key);
         $value = mysqli_real_escape_string($conn, $value);
-        mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES ('$key', '$value') ON DUPLICATE KEY UPDATE setting_value='$value'");
+        mysqli_query($conn, "INSERT INTO app_settings (clinic_id, setting_key, setting_value) VALUES ($clinic_id, '$key', '$value') ON DUPLICATE KEY UPDATE setting_value='$value'");
     }
 
     // 2. Process Working Days (Checkboxes to String)
     if (isset($_POST['working_days_list']) && is_array($_POST['working_days_list'])) {
         $days_str = implode(',', $_POST['working_days_list']);
-        mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES ('working_days', '$days_str') ON DUPLICATE KEY UPDATE setting_value='$days_str'");
+        mysqli_query($conn, "INSERT INTO app_settings (clinic_id, setting_key, setting_value) VALUES ($clinic_id, 'working_days', '$days_str') ON DUPLICATE KEY UPDATE setting_value='$days_str'");
     }
 
     // 3. Process Operating Hours (Start/End Time to String)
     if (isset($_POST['time_start']) && isset($_POST['time_end'])) {
         $timings = date("h:i A", strtotime($_POST['time_start'])) . " - " . date("h:i A", strtotime($_POST['time_end']));
-        mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES ('clinic_timings', '$timings') ON DUPLICATE KEY UPDATE setting_value='$timings'");
+        mysqli_query($conn, "INSERT INTO app_settings (clinic_id, setting_key, setting_value) VALUES ($clinic_id, 'clinic_timings', '$timings') ON DUPLICATE KEY UPDATE setting_value='$timings'");
     }
     
     // 4. Handle Logo Upload
@@ -31,7 +31,7 @@ if (isset($_POST['update_settings'])) {
         $new_name = "logo_" . uniqid() . "_" . time() . "." . $file_ext;
         if (move_uploaded_file($_FILES["clinic_logo"]["tmp_name"], $target_dir . $new_name)) {
             $logo_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . str_replace(basename($_SERVER['SCRIPT_NAME']), '', $_SERVER['SCRIPT_NAME']) . 'uploads/' . $new_name;
-            mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES ('clinic_logo', '$logo_url') ON DUPLICATE KEY UPDATE setting_value='$logo_url'");
+            mysqli_query($conn, "INSERT INTO app_settings (clinic_id, setting_key, setting_value) VALUES ($clinic_id, 'clinic_logo', '$logo_url') ON DUPLICATE KEY UPDATE setting_value='$logo_url'");
         }
     }
 
@@ -43,7 +43,30 @@ if (isset($_POST['update_settings'])) {
         $new_name = "cover_" . uniqid() . "_" . time() . "." . $file_ext;
         if (move_uploaded_file($_FILES["clinic_cover"]["tmp_name"], $target_dir . $new_name)) {
             $cover_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . str_replace(basename($_SERVER['SCRIPT_NAME']), '', $_SERVER['SCRIPT_NAME']) . 'uploads/' . $new_name;
-            mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES ('clinic_cover', '$cover_url') ON DUPLICATE KEY UPDATE setting_value='$cover_url'");
+            mysqli_query($conn, "INSERT INTO app_settings (clinic_id, setting_key, setting_value) VALUES ($clinic_id, 'clinic_cover', '$cover_url') ON DUPLICATE KEY UPDATE setting_value='$cover_url'");
+        }
+    }
+
+    // 6. Handle Password Change
+    if (!empty($_POST['new_password'])) {
+        $current_password = $_POST['current_password'];
+        $new_password = $_POST['new_password'];
+        $confirm_password = $_POST['confirm_password'];
+
+        $admin_res = mysqli_query($conn, "SELECT password FROM admins WHERE clinic_id = $clinic_id");
+        $admin = mysqli_fetch_assoc($admin_res);
+
+        if (!password_verify($current_password, $admin['password'])) {
+            header("Location: branding.php?error=Incorrect current password.");
+            exit;
+        } elseif ($new_password !== $confirm_password) {
+            header("Location: branding.php?error=New passwords do not match.");
+            exit;
+        } else {
+            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+            mysqli_query($conn, "UPDATE admins SET password = '$hashed_password' WHERE clinic_id = $clinic_id");
+            // Also update clinic table password for consistency if used
+            mysqli_query($conn, "UPDATE clinics SET password = '$hashed_password' WHERE id = $clinic_id");
         }
     }
 
@@ -52,7 +75,7 @@ if (isset($_POST['update_settings'])) {
 }
 
 // Fetch Settings
-$settings_res = mysqli_query($conn, "SELECT * FROM app_settings");
+$settings_res = mysqli_query($conn, "SELECT * FROM app_settings WHERE clinic_id = $clinic_id");
 $settings = [];
 while ($row = mysqli_fetch_assoc($settings_res)) {
     $settings[$row['setting_key']] = $row['setting_value'];
@@ -96,6 +119,18 @@ $end_time = isset($time_parts[1]) ? date("H:i", strtotime($time_parts[1])) : "20
             }
         }, 5000);
     </script>
+<?php endif; ?>
+<?php if(isset($_GET['error'])): ?>
+    <div id="errorToast" class="premium-toast animate-slide-in" style="border-left-color: #EF4444;">
+        <div class="toast-icon" style="background: #FEF2F2; color: #EF4444;">
+            <i class="fas fa-exclamation-circle"></i>
+        </div>
+        <div class="toast-content">
+            <h4>Update Failed</h4>
+            <p><?= htmlspecialchars($_GET['error']) ?></p>
+        </div>
+        <button onclick="document.getElementById('errorToast').style.display='none'" class="toast-close">&times;</button>
+    </div>
 <?php endif; ?>
 
 <style>
@@ -163,10 +198,19 @@ $end_time = isset($time_parts[1]) ? date("H:i", strtotime($time_parts[1])) : "20
 }
 </style>
 
+<!-- Tab Navigation -->
+<div class="settings-tabs">
+    <button type="button" class="tab-btn active" onclick="switchTab(event, 'general')"><i class="fas fa-clinic-medical"></i> General</button>
+    <button type="button" class="tab-btn" onclick="switchTab(event, 'branding')"><i class="fas fa-paint-brush"></i> Branding</button>
+    <button type="button" class="tab-btn" onclick="switchTab(event, 'clinical')"><i class="fas fa-user-md"></i> Clinical</button>
+    <button type="button" class="tab-btn" onclick="switchTab(event, 'finance')"><i class="fas fa-wallet"></i> Finance</button>
+    <button type="button" class="tab-btn danger" onclick="switchTab(event, 'security')"><i class="fas fa-shield-alt"></i> Security</button>
+</div>
+
 <form method="POST" enctype="multipart/form-data">
-    <div class="stats-grid" style="grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
-        <!-- Left Pane: General Identity -->
-        <div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- General Tab -->
+    <div id="general" class="tab-content active">
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
             <div class="card" style="border-radius: 16px;">
                 <div class="card-header" style="background: #F8FAFC;">
                     <h3 class="card-title"><i class="fas fa-hospital" style="color: var(--primary);"></i> Clinic Identity</h3>
@@ -193,14 +237,13 @@ $end_time = isset($time_parts[1]) ? date("H:i", strtotime($time_parts[1])) : "20
                 </div>
             </div>
 
-            <!-- Operating Hours & Schedule -->
             <div class="card" style="border-radius: 16px;">
                 <div class="card-header" style="background: #F8FAFC;">
                     <h3 class="card-title"><i class="fas fa-clock" style="color: var(--warning);"></i> Operating Schedule</h3>
                 </div>
                 <div style="padding: 24px;">
                     <div class="form-group">
-                        <label class="form-label">Working Days (Select all that apply)</label>
+                        <label class="form-label">Working Days</label>
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; background: #F8FAFC; padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
                             <?php foreach($all_days as $day): ?>
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: white; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
@@ -210,132 +253,242 @@ $end_time = isset($time_parts[1]) ? date("H:i", strtotime($time_parts[1])) : "20
                             <?php endforeach; ?>
                         </div>
                     </div>
-
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                         <div class="form-group">
                             <label class="form-label">Opening Time</label>
-                            <div style="position: relative;">
-                                <i class="fas fa-sun" style="position: absolute; left: 12px; top: 12px; color: #F59E0B; z-index: 1;"></i>
-                                <input type="time" name="time_start" class="form-control" value="<?= $start_time ?>" style="padding-left: 35px; border-radius: 8px;">
-                            </div>
+                            <input type="time" name="time_start" class="form-control" value="<?= $start_time ?>" style="border-radius: 8px;">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Closing Time</label>
-                            <div style="position: relative;">
-                                <i class="fas fa-moon" style="position: absolute; left: 12px; top: 12px; color: #6366F1; z-index: 1;"></i>
-                                <input type="time" name="time_end" class="form-control" value="<?= $end_time ?>" style="padding-left: 35px; border-radius: 8px;">
-                            </div>
+                            <input type="time" name="time_end" class="form-control" value="<?= $end_time ?>" style="border-radius: 8px;">
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Right Pane: Assets & Branding -->
-        <div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- Branding Tab -->
+    <div id="branding" class="tab-content">
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
             <div class="card" style="border-radius: 16px;">
                 <div class="card-header" style="background: #F8FAFC;">
-                    <h3 class="card-title"><i class="fas fa-image" style="color: var(--sky);"></i> Branding Assets</h3>
+                    <h3 class="card-title"><i class="fas fa-image" style="color: var(--sky);"></i> Logo Assets</h3>
+                </div>
+                <div style="padding: 24px; text-align: center;">
+                    <div style="width: 150px; height: 150px; border-radius: 20px; background: #f1f5f9; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px dashed var(--border);">
+                        <?php if(!empty($settings['clinic_logo'])): ?>
+                            <img src="<?= $settings['clinic_logo'] ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                        <?php else: ?>
+                            <i class="fas fa-hospital" style="font-size: 50px; color: #cbd5e1;"></i>
+                        <?php endif; ?>
+                    </div>
+                    <input type="file" name="clinic_logo" class="form-control" style="border-radius: 8px;">
+                    <p class="text-muted mt-2" style="font-size: 11px;">Recommended size: 512x512px (PNG/JPG)</p>
+                </div>
+            </div>
+
+            <div class="card" style="border-radius: 16px;">
+                <div class="card-header" style="background: #F8FAFC;">
+                    <h3 class="card-title"><i class="fas fa-panorama" style="color: var(--primary);"></i> Banner Assets</h3>
                 </div>
                 <div style="padding: 24px;">
-                    <!-- Logo Upload -->
-                    <div class="form-group">
-                        <label class="form-label">Clinic Logo</label>
-                        <div style="width: 100px; height: 100px; border-radius: 15px; background: #f1f5f9; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px dashed var(--border);">
-                            <?php if(!empty($settings['clinic_logo'])): ?>
-                                <img src="<?= $settings['clinic_logo'] ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                            <?php else: ?>
-                                <i class="fas fa-image" style="font-size: 30px; color: #cbd5e1;"></i>
-                            <?php endif; ?>
-                        </div>
-                        <input type="file" name="clinic_logo" class="form-control" style="font-size: 11px; border-radius: 8px;">
+                    <div style="width: 100%; height: 150px; border-radius: 12px; background: #f1f5f9; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px dashed var(--border);">
+                        <?php if(!empty($settings['clinic_cover'])): ?>
+                            <img src="<?= $settings['clinic_cover'] ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                        <?php else: ?>
+                            <i class="fas fa-image" style="font-size: 40px; color: #cbd5e1;"></i>
+                        <?php endif; ?>
                     </div>
+                    <input type="file" name="clinic_cover" class="form-control" style="border-radius: 8px;">
+                    <p class="text-muted mt-2" style="font-size: 11px;">This banner appears on your digital posters and patient documents.</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
-
-                    <!-- Cover Upload -->
+    <!-- Clinical Tab -->
+    <div id="clinical" class="tab-content">
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div class="card" style="border-radius: 16px;">
+                <div class="card-header" style="background: #F8FAFC;">
+                    <h3 class="card-title"><i class="fas fa-user-shield" style="color: var(--danger);"></i> Capacity Limits</h3>
+                </div>
+                <div style="padding: 24px;">
                     <div class="form-group">
-                        <label class="form-label">Cover Photo (Banner)</label>
-                        <div style="width: 100%; height: 120px; border-radius: 12px; background: #f1f5f9; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px dashed var(--border);">
-                            <?php if(!empty($settings['clinic_cover'])): ?>
-                                <img src="<?= $settings['clinic_cover'] ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                            <?php else: ?>
-                                <i class="fas fa-panorama" style="font-size: 30px; color: #cbd5e1;"></i>
-                            <?php endif; ?>
-                        </div>
-                        <input type="file" name="clinic_cover" class="form-control" style="font-size: 11px; border-radius: 8px;">
+                        <label class="form-label">Max New Patients / Day</label>
+                        <input type="number" name="settings[max_new_patients]" class="form-control" value="<?= htmlspecialchars($settings['max_new_patients'] ?? '0') ?>">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Max Old Patients / Day</label>
+                        <input type="number" name="settings[max_old_patients]" class="form-control" value="<?= htmlspecialchars($settings['max_old_patients'] ?? '0') ?>">
                     </div>
                 </div>
             </div>
 
             <div class="card" style="border-radius: 16px;">
                 <div class="card-header" style="background: #F8FAFC;">
-                    <h3 class="card-title"><i class="fas fa-money-bill-wave" style="color: var(--success);"></i> Financial Defaults</h3>
+                    <h3 class="card-title"><i class="fas fa-print" style="color: var(--secondary);"></i> Prescription Layout</h3>
                 </div>
                 <div style="padding: 24px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div class="form-group">
-                            <label class="form-label">New Registration Fee</label>
-                            <div style="position: relative;">
-                                <span style="position: absolute; left: 12px; top: 10px; color: var(--text-muted); font-weight: 700;">₹</span>
-                                <input type="number" name="settings[default_fee]" class="form-control" style="padding-left: 25px; border-radius: 8px;" value="<?= htmlspecialchars($settings['default_fee'] ?? '500') ?>">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Follow-up Fee</label>
-                            <div style="position: relative;">
-                                <span style="position: absolute; left: 12px; top: 10px; color: var(--text-muted); font-weight: 700;">₹</span>
-                                <input type="number" name="settings[followup_fee]" class="form-control" style="padding-left: 25px; border-radius: 8px;" value="<?= htmlspecialchars($settings['followup_fee'] ?? '200') ?>">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card" style="border-radius: 16px;">
-                <div class="card-header" style="background: #F8FAFC;">
-                    <h3 class="card-title"><i class="fas fa-user-shield" style="color: var(--danger);"></i> Clinical Capacity Limits</h3>
-                </div>
-                <div style="padding: 24px;">
-                    <p class="text-muted mb-3" style="font-size: 11px;">Set daily limits for patient registrations. Use '0' for unlimited.</p>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div class="form-group">
-                            <label class="form-label">Max New Patients / Day</label>
-                            <input type="number" name="settings[max_new_patients]" class="form-control" style="border-radius: 8px;" value="<?= htmlspecialchars($settings['max_new_patients'] ?? '0') ?>">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Max Old Patients / Day</label>
-                            <input type="number" name="settings[max_old_patients]" class="form-control" style="border-radius: 8px;" value="<?= htmlspecialchars($settings['max_old_patients'] ?? '0') ?>">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card" style="border-radius: 16px;">
-                <div class="card-header" style="background: #F8FAFC;">
-                    <h3 class="card-title"><i class="fas fa-print" style="color: var(--secondary);"></i> Prescription Settings</h3>
-                </div>
-                <div style="padding: 24px;">
-                    <p class="text-muted mb-3" style="font-size: 11px;">Configure layout settings for printed prescriptions.</p>
                     <div class="form-group">
-                        <label class="form-label">Top Margin (for Letterhead) - in pixels</label>
-                        <div style="position: relative;">
-                            <i class="fas fa-arrows-alt-v" style="position: absolute; left: 12px; top: 12px; color: var(--text-muted); z-index: 1;"></i>
-                            <input type="number" name="settings[prescription_top_margin]" class="form-control" style="padding-left: 35px; border-radius: 8px;" value="<?= htmlspecialchars($settings['prescription_top_margin'] ?? '150') ?>" placeholder="e.g. 150">
-                        </div>
-                        <small class="text-muted" style="font-size: 10px;">Adjust this to leave space for your clinic's pre-printed letterhead.</small>
+                        <label class="form-label">Top Margin (Pixels)</label>
+                        <input type="number" name="settings[prescription_top_margin]" class="form-control" value="<?= htmlspecialchars($settings['prescription_top_margin'] ?? '150') ?>">
+                        <small class="text-muted">Space to leave for pre-printed letterheads.</small>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Finance Tab -->
+    <div id="finance" class="tab-content">
+        <div class="card" style="border-radius: 16px; max-width: 600px; margin: 0 auto;">
+            <div class="card-header" style="background: #F8FAFC;">
+                <h3 class="card-title"><i class="fas fa-money-bill-wave" style="color: var(--success);"></i> Default Fees</h3>
+            </div>
+            <div style="padding: 24px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <div class="form-group">
+                        <label class="form-label">New Registration Fee (₹)</label>
+                        <input type="number" name="settings[default_fee]" class="form-control" value="<?= htmlspecialchars($settings['default_fee'] ?? '500') ?>">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Follow-up Fee (₹)</label>
+                        <input type="number" name="settings[followup_fee]" class="form-control" value="<?= htmlspecialchars($settings['followup_fee'] ?? '200') ?>">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security Tab -->
+    <div id="security" class="tab-content">
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+            <!-- Password Change -->
+            <div class="card" style="border-radius: 16px;">
+                <div class="card-header" style="background: #F8FAFC;">
+                    <h3 class="card-title"><i class="fas fa-key" style="color: var(--warning);"></i> Change Password</h3>
+                </div>
+                <div style="padding: 24px;">
+                    <div class="form-group">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" name="current_password" class="form-control" placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">New Password</label>
+                        <input type="password" name="new_password" class="form-control" placeholder="Min 6 characters">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" name="confirm_password" class="form-control" placeholder="••••••••">
+                    </div>
+                    <p class="text-muted" style="font-size: 11px;">Leave these fields blank if you don't want to change your password.</p>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="card" style="border-radius: 16px; border: 1px solid #FECDD3;">
+                <div class="card-header" style="background: #FFF1F2;">
+                    <h3 class="card-title" style="color: #E11D48;"><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
+                </div>
+                <div style="padding: 30px; text-align: center;">
+                    <p class="mb-4">This action will permanently delete all patients, medical records, and configurations for your clinic.</p>
+                    <a href="reset_clinic.php" class="btn" style="background: #E11D48; color: white; padding: 12px 30px; border-radius: 10px; font-weight: 700;">
+                        <i class="fas fa-trash-alt"></i> Perform Factory Reset
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="d-flex justify-end mt-4" style="padding-bottom: 50px;">
-        <button type="submit" name="update_settings" class="btn btn-primary" style="padding: 16px 48px; border-radius: 14px; font-weight: 800; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.3); letter-spacing: 0.5px; transition: all 0.3s ease;">
-            <i class="fas fa-save" style="margin-right: 10px;"></i> Update Clinic Branding
+        <button type="submit" name="update_settings" class="btn btn-primary" style="padding: 16px 48px; border-radius: 14px; font-weight: 800; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.3);">
+            <i class="fas fa-save"></i> Save All Changes
         </button>
     </div>
 </form>
+
+<style>
+.settings-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    background: #FFF;
+    padding: 8px;
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+    overflow-x: auto;
+}
+
+.tab-btn {
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    color: #FFF;
+}
+
+.tab-btn.danger:hover {
+    background: #FFF1F2;
+    color: #E11D48;
+}
+
+.tab-btn.danger.active {
+    background: #E11D48;
+    color: #FFF;
+}
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.justify-end { justify-content: flex-end; }
+</style>
+
+<script>
+function switchTab(evt, tabName) {
+    var i, tabcontent, tablinks;
+    tabcontent = document.getElementsByClassName("tab-content");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].classList.remove("active");
+    }
+    tablinks = document.getElementsByClassName("tab-btn");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+    }
+    document.getElementById(tabName).classList.add("active");
+    evt.currentTarget.classList.add("active");
+}
+</script>
 
 <style>
 .btn-primary:hover {

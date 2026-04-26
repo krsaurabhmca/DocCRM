@@ -8,7 +8,7 @@ if (isset($_POST['update_followup'])) {
     $status = mysqli_real_escape_string($conn, $_POST['status']);
     $notes = mysqli_real_escape_string($conn, $_POST['notes']);
     
-    $sql = "UPDATE followups SET status='$status', notes='$notes' WHERE id=$fid";
+    $sql = "UPDATE followups SET status='$status', notes='$notes' WHERE id=$fid AND clinic_id=$clinic_id";
     if (mysqli_query($conn, $sql)) {
         echo "<script>window.location.href='queue.php?success=1&last_id=$fid';</script>";
         exit;
@@ -16,16 +16,16 @@ if (isset($_POST['update_followup'])) {
 }
 
 $selected_date = date('Y-m-d');
-// Fetch both new registrations (Completed status for today) and scheduled followups
+// Fetch both new registrations (Completed status for today) and scheduled followups (isolated by clinic)
 $query = "SELECT f.*, p.name as patient_name, p.phone, p.gender FROM followups f 
           JOIN patients p ON f.patient_id = p.id 
-          WHERE f.followup_date = '$selected_date' 
+          WHERE f.followup_date = '$selected_date' AND f.clinic_id = $clinic_id
           ORDER BY f.id ASC";
 $queue = mysqli_query($conn, $query);
 
-// Stats
+// Stats (isolated by clinic)
 $total_queue = mysqli_num_rows($queue);
-$completed_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE followup_date = '$selected_date' AND status = 'Completed'"))['cnt'];
+$completed_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE followup_date = '$selected_date' AND status = 'Completed' AND clinic_id = $clinic_id"))['cnt'];
 $pending_count = $total_queue - $completed_count;
 ?>
 

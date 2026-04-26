@@ -2,15 +2,15 @@
 $page_title = "Finance & Revenue Dashboard";
 require_once 'components/header.php';
 
-// Revenue Stats
-$total_revenue = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE status = 'Completed'"))['total'] ?? 0;
-$today_revenue = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE status = 'Completed' AND followup_date = CURDATE()"))['total'] ?? 0;
-$month_revenue = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE status = 'Completed' AND MONTH(followup_date) = MONTH(CURDATE()) AND YEAR(followup_date) = YEAR(CURDATE())"))['total'] ?? 0;
+// Revenue Stats (isolated by clinic)
+$total_revenue = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE status = 'Completed' AND clinic_id = $clinic_id"))['total'] ?? 0;
+$today_revenue = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE status = 'Completed' AND followup_date = CURDATE() AND clinic_id = $clinic_id"))['total'] ?? 0;
+$month_revenue = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(fee) as total FROM followups WHERE status = 'Completed' AND MONTH(followup_date) = MONTH(CURDATE()) AND YEAR(followup_date) = YEAR(CURDATE()) AND clinic_id = $clinic_id"))['total'] ?? 0;
 
-// Transactions
+// Transactions (isolated by clinic)
 $transactions = mysqli_query($conn, "SELECT f.*, p.name as patient_name FROM followups f 
                                     JOIN patients p ON f.patient_id = p.id 
-                                    WHERE f.status = 'Completed' AND f.fee > 0
+                                    WHERE f.status = 'Completed' AND f.fee > 0 AND f.clinic_id = $clinic_id
                                     ORDER BY f.followup_date DESC, f.id DESC LIMIT 50");
 ?>
 

@@ -37,8 +37,10 @@ export default function AddFollowup() {
     followup_date: "",
     followup_type: "Routine Checkup",
     fee: "0",
-    notes: ""
+    notes: "",
+    doctor_id: ""
   });
+  const [doctors, setDoctors] = useState<any[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
   const [workingDays, setWorkingDays] = useState<string[]>([]);
 
@@ -47,7 +49,22 @@ export default function AddFollowup() {
       setSelectedPatient({ id: patientId, name: patientName });
     }
     fetchSettingsAndSetDate();
+    fetchDoctors();
   }, [patientId, patientName]);
+
+  const fetchDoctors = async () => {
+    try {
+      const response = await fetch(`${API_BASE}?action=get_doctors`, {
+        headers: { "X-API-KEY": API_KEY }
+      });
+      const json = await response.json();
+      if (json.success) {
+        setDoctors(json.data);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchSettingsAndSetDate = async () => {
     try {
@@ -348,6 +365,33 @@ export default function AddFollowup() {
                 />
               </View>
             </View>
+          </View>
+        </View>
+
+        {/* Medical Professional */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="person-outline" size={18} color={Theme.colors.primary} />
+            <Text style={styles.sectionTitle}>Assign Specialist</Text>
+          </View>
+          <View style={styles.categoryGrid}>
+            {doctors.map(doc => (
+              <TouchableOpacity
+                key={doc.id}
+                style={[
+                  styles.categoryChip,
+                  form.doctor_id === doc.id.toString() && styles.selectedChip
+                ]}
+                onPress={() => setForm({ ...form, doctor_id: doc.id.toString() })}
+              >
+                <Text style={[
+                  styles.chipText,
+                  form.doctor_id === doc.id.toString() && styles.selectedChipText
+                ]}>
+                  Dr. {doc.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 

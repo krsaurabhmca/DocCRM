@@ -25,22 +25,32 @@ const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const { setIsAuthenticated } = useAuth();
-  const [phone, setPhone] = useState('');
+  const [identity, setIdentity] = useState(''); // Email or Phone
+  const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(1); // 1: Identity, 2: Password or OTP
+  const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSendOTP = async () => {
-    if (phone.length < 10) {
-      Alert.alert('Invalid Number', 'Please enter a valid 10-digit phone number.');
+  const handleNext = async () => {
+    if (!identity) {
+      Alert.alert('Required', 'Please enter your registered Email or Phone.');
       return;
     }
 
+    if (authMethod === 'otp') {
+        handleSendOTP();
+    } else {
+        setStep(2);
+    }
+  };
+
+  const handleSendOTP = async () => {
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.append('phone', phone);
+      formData.append('phone', identity);
 
       const response = await fetch(`${Config.API_BASE}?action=send_otp`, {
         method: 'POST',
@@ -61,6 +71,49 @@ export default function LoginScreen() {
     }
   };
 
+  const handleLogin = async () => {
+    if (authMethod === 'otp') {
+        handleVerifyOTP();
+    } else {
+        handlePasswordLogin();
+    }
+  };
+
+  const handlePasswordLogin = async () => {
+    if (!password) {
+      Alert.alert('Error', 'Please enter your password.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('identity', identity);
+      formData.append('password', password);
+
+      const response = await fetch(`${Config.API_BASE}?action=login_password`, {
+        method: 'POST',
+        headers: { 'X-API-KEY': Config.API_KEY },
+        body: formData,
+      });
+
+      const json = await response.json();
+      if (json.success) {
+        await AsyncStorage.setItem('userToken', json.token);
+        await AsyncStorage.setItem('userPhone', json.phone || '');
+        setIsAuthenticated(true);
+        router.replace('/');
+      } else {
+        Alert.alert('Login Failed', json.message || 'Invalid credentials');
+      }
+    } catch (error) {
+        console.error(error);
+      Alert.alert('Error', 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleVerifyOTP = async () => {
     if (otp.length < 4) {
       Alert.alert('Invalid OTP', 'Please enter the 4-digit code sent to your WhatsApp.');
@@ -70,7 +123,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.append('phone', phone);
+      formData.append('phone', identity);
       formData.append('otp', otp);
 
       const response = await fetch(`${Config.API_BASE}?action=verify_otp`, {
@@ -118,51 +171,83 @@ export default function LoginScreen() {
             </Animated.View>
 
             <Animated.View entering={FadeInDown.delay(400).duration(800)} style={styles.glassCard}>
-              <Text style={styles.cardTitle}>{step === 1 ? 'Welcome Back' : 'Verification'}</Text>
+              <Text style={styles.cardTitle}>{step === 1 ? 'Welcome Back' : (authMethod === 'otp' ? 'Verification' : 'Security Check')}</Text>
               <Text style={styles.cardSub}>
-                {step === 1 ? 'Enter your registered phone number to continue' : `Enter the 4-digit OTP sent to ${phone}`}
+                {step === 1 
+                    ? 'Enter your clinic credentials to manage your practice.' 
+                    : (authMethod === 'otp' ? `Enter the 4-digit OTP sent to ${identity}` : 'Please enter your password to continue.')}
               </Text>
 
               <View style={styles.inputSection}>
-                <View style={styles.inputContainer}>
-                  <Ionicons name={step === 1 ? "call-outline" : "key-outline"} size={20} color="#94A3B8" style={styles.icon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder={step === 1 ? "Phone Number" : "OTP Code"}
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="number-pad"
-                    maxLength={step === 1 ? 10 : 4}
-                    value={step === 1 ? phone : otp}
-                    onChangeText={step === 1 ? setPhone : setOtp}
-                  />
-                </View>
+                {step === 1 ? (
+                    <View style={styles.inputContainer}>
+                        <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.icon} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Email or Mobile Number"
+                            placeholderTextColor="#94A3B8"
+                            autoCapitalize="none"
+                            value={identity}
+                            onChangeText={setIdentity}
+                        />
+                    </View>
+                ) : (
+                    <View style={styles.inputContainer}>
+                        <Ionicons name={authMethod === 'otp' ? "key-outline" : "lock-closed-outline"} size={20} color="#94A3B8" style={styles.icon} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder={authMethod === 'otp' ? "OTP Code" : "Password"}
+                            placeholderTextColor="#94A3B8"
+                            secureTextEntry={authMethod === 'password'}
+                            keyboardType={authMethod === 'otp' ? "number-pad" : "default"}
+                            maxLength={authMethod === 'otp' ? 4 : undefined}
+                            value={authMethod === 'otp' ? otp : password}
+                            onChangeText={authMethod === 'otp' ? setOtp : setPassword}
+                            autoFocus={true}
+                        />
+                    </View>
+                )}
 
                 <TouchableOpacity
                   style={[styles.mainBtn, loading && styles.btnDisabled]}
-                  onPress={step === 1 ? handleSendOTP : handleVerifyOTP}
+                  onPress={step === 1 ? handleNext : handleLogin}
                   disabled={loading}
                 >
                   {loading ? (
                     <ActivityIndicator color="white" />
                   ) : (
                     <>
-                      <Text style={styles.btnText}>{step === 1 ? 'Get OTP' : 'Verify & Enter'}</Text>
+                      <Text style={styles.btnText}>{step === 1 ? 'Continue' : 'Login'}</Text>
                       <Ionicons name="chevron-forward" size={20} color="white" />
                     </>
                   )}
                 </TouchableOpacity>
 
+                {step === 1 && (
+                    <TouchableOpacity 
+                        onPress={() => setAuthMethod(authMethod === 'password' ? 'otp' : 'password')} 
+                        style={styles.methodToggle}
+                    >
+                        <Text style={styles.methodToggleText}>
+                            Login with {authMethod === 'password' ? 'WhatsApp OTP' : 'Password'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+
                 {step === 2 && (
                   <TouchableOpacity onPress={() => setStep(1)} style={styles.backBtn}>
-                    <Text style={styles.backBtnText}>Change Number</Text>
+                    <Text style={styles.backBtnText}>Back to Identity</Text>
                   </TouchableOpacity>
                 )}
               </View>
             </Animated.View>
 
+            <TouchableOpacity onPress={() => router.push('/signup')} style={styles.signupAction}>
+                <Text style={styles.signupText}>Don't have a clinic? <Text style={{ color: 'white', fontWeight: '800' }}>Create One</Text></Text>
+            </TouchableOpacity>
+
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Secure authentication via WhatsApp</Text>
-              <Ionicons name="logo-whatsapp" size={14} color="#22C55E" style={{ marginLeft: 5 }} />
+              <Text style={styles.footerText}>Secure SaaS Authentication</Text>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -292,7 +377,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    bottom: 40,
+    bottom: 30,
     width: '100%',
   },
   footerText: {
@@ -300,4 +385,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  methodToggle: {
+    alignItems: 'center',
+    marginTop: 10,
+    padding: 10,
+  },
+  methodToggleText: {
+    color: '#0284C7',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  signupAction: {
+    marginTop: 25,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 15,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  signupText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 15,
+  }
 });

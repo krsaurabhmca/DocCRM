@@ -8,19 +8,26 @@ if (isset($_SESSION['admin_id'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = mysqli_real_escape_string($conn, $_POST['username']);
+    $identifier = mysqli_real_escape_string($conn, $_POST['username']); // This field now takes email or phone
     $password = $_POST['password'];
 
-    $result = mysqli_query($conn, "SELECT * FROM admins WHERE username = '$username'");
-    if ($row = mysqli_fetch_assoc($result)) {
-        if (password_verify($password, $row['password'])) {
-            $_SESSION['admin_id'] = $row['id'];
-            $_SESSION['admin_user'] = $row['username'];
-            header("Location: index.php");
-            exit;
+    // Find clinic by email or phone
+    $clinic_res = mysqli_query($conn, "SELECT id FROM clinics WHERE email = '$identifier' OR phone = '$identifier'");
+    if ($clinic = mysqli_fetch_assoc($clinic_res)) {
+        $clinic_id = $clinic['id'];
+        // Find the admin for this clinic
+        $result = mysqli_query($conn, "SELECT * FROM admins WHERE clinic_id = $clinic_id");
+        if ($row = mysqli_fetch_assoc($result)) {
+            if (password_verify($password, $row['password'])) {
+                $_SESSION['admin_id'] = $row['id'];
+                $_SESSION['clinic_id'] = $row['clinic_id'];
+                $_SESSION['admin_user'] = $row['username'];
+                header("Location: index.php");
+                exit;
+            }
         }
     }
-    $error = "Invalid username or password.";
+    $error = "Invalid Email/Phone or Password.";
 }
 ?>
 <!DOCTYPE html>
@@ -128,7 +135,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .error-box { background: #FFF1F2; color: #E11D48; padding: 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 20px; text-align: center; border: 1px solid #FECDD3; }
 
         @media (max-width: 992px) {
-            .login-brand { display: none; }
+            body { flex-direction: column; height: auto; overflow-y: auto; }
+            .login-brand { padding: 40px 24px; text-align: center; justify-content: center; min-height: 300px; }
+            .brand-logo { justify-content: center; font-size: 2rem; }
+            .brand-logo i { width: 50px; height: 50px; font-size: 1.8rem; }
+            .brand-text h1 { font-size: 1.8rem; }
+            .brand-text p { margin: 0 auto; font-size: 1rem; }
+            .feature-list { display: none; }
+            .login-form-side { padding: 40px 24px; min-height: 500px; }
         }
     </style>
 </head>
@@ -161,10 +175,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             <form method="POST">
                 <div class="form-group">
-                    <label class="form-label">Username</label>
+                    <label class="form-label">Email or Mobile Number</label>
                     <div class="input-group">
-                        <i class="fas fa-user"></i>
-                        <input type="text" name="username" class="input-control" placeholder="Admin Username" required autofocus>
+                        <i class="fas fa-user-shield"></i>
+                        <input type="text" name="username" class="input-control" placeholder="admin@clinic.com or 9876543210" required autofocus>
                     </div>
                 </div>
                 <div class="form-group">
@@ -176,6 +190,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
                 <button type="submit" class="btn-login">Sign In to Dashboard</button>
             </form>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <p style="font-size: 0.9rem; color: #64748B;">Don't have a clinic account? <a href="signup.php" style="color: var(--primary); font-weight: 600; text-decoration: none;">Register Clinic</a></p>
+            </div>
             
             <p style="text-align: center; margin-top: 30px; font-size: 0.8rem; color: #94A3B8;">
                 DocCRM Management Portal &copy; <?= date('Y') ?>

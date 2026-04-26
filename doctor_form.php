@@ -1,4 +1,5 @@
 <?php
+ob_start();
 $page_title = isset($_GET['id']) ? 'Edit Doctor Profile' : 'Add New Doctor';
 require_once 'components/header.php';
 
@@ -7,7 +8,7 @@ $name = $specialization = $qualification = $experience = $phone = '';
 $is_active = 1;
 
 if ($id > 0) {
-    $result = mysqli_query($conn, "SELECT * FROM doctors WHERE id = $id");
+    $result = mysqli_query($conn, "SELECT * FROM doctors WHERE id = $id AND clinic_id = $clinic_id");
     if ($row = mysqli_fetch_assoc($result)) {
         $name = $row['name'];
         $specialization = $row['specialization'];
@@ -15,6 +16,9 @@ if ($id > 0) {
         $experience = $row['experience'];
         $phone = $row['phone'];
         $is_active = $row['is_active'];
+    } else {
+        header("Location: doctors.php");
+        exit;
     }
 }
 
@@ -27,9 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $is_active = isset($_POST['is_active']) ? 1 : 0;
 
     if ($id > 0) {
-        $sql = "UPDATE doctors SET name='$name', specialization='$specialization', qualification='$qualification', experience=$experience, phone='$phone', is_active=$is_active WHERE id=$id";
+        $sql = "UPDATE doctors SET name='$name', specialization='$specialization', qualification='$qualification', experience=$experience, phone='$phone', is_active=$is_active WHERE id=$id AND clinic_id=$clinic_id";
     } else {
-        $sql = "INSERT INTO doctors (name, specialization, qualification, experience, phone, is_active) VALUES ('$name', '$specialization', '$qualification', $experience, '$phone', $is_active)";
+        $sql = "INSERT INTO doctors (clinic_id, name, specialization, qualification, experience, phone, is_active) VALUES ($clinic_id, '$name', '$specialization', '$qualification', $experience, '$phone', $is_active)";
     }
 
     if (mysqli_query($conn, $sql)) {
@@ -105,4 +109,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </form>
 </div>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

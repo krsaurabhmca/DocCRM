@@ -8,7 +8,7 @@ if (isset($_POST['update_followup'])) {
     $status = mysqli_real_escape_string($conn, $_POST['status']);
     $notes = mysqli_real_escape_string($conn, $_POST['notes']);
     
-    $sql = "UPDATE followups SET status='$status', notes='$notes' WHERE id=$fid";
+    $sql = "UPDATE followups SET status='$status', notes='$notes' WHERE id=$fid AND clinic_id=$clinic_id";
     if (mysqli_query($conn, $sql)) {
         echo "<script>window.location.href='daily_reminders.php?date=" . $_POST['current_date'] . "&success=1';</script>";
         exit;
@@ -18,7 +18,7 @@ if (isset($_POST['update_followup'])) {
 $selected_date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 $query = "SELECT f.*, p.name as patient_name, p.phone FROM followups f 
           JOIN patients p ON f.patient_id = p.id 
-          WHERE f.followup_date = '$selected_date' 
+          WHERE f.followup_date = '$selected_date' AND f.clinic_id = $clinic_id
           ORDER BY f.id DESC";
 $reminders = mysqli_query($conn, $query);
 ?>

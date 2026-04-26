@@ -1,15 +1,16 @@
 <?php
+ob_start();
 $page_title = 'Campaigns';
 require_once 'components/header.php';
 
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    mysqli_query($conn, "DELETE FROM campaigns WHERE id = $id");
+    mysqli_query($conn, "DELETE FROM campaigns WHERE id = $id AND clinic_id = $clinic_id");
     header("Location: campaigns.php");
     exit;
 }
 
-$query = "SELECT * FROM campaigns ORDER BY created_at DESC";
+$query = "SELECT * FROM campaigns WHERE clinic_id = $clinic_id ORDER BY created_at DESC";
 $campaigns = mysqli_query($conn, $query);
 ?>
 
@@ -34,12 +35,12 @@ $campaigns = mysqli_query($conn, $query);
             <tbody>
                 <?php while($row = mysqli_fetch_assoc($campaigns)): 
                     $camp_id = $row['id'];
-                    $c_res = mysqli_query($conn, "SELECT c.name FROM categories c JOIN campaign_categories cc ON c.id = cc.category_id WHERE cc.campaign_id = $camp_id");
+                    $c_res = mysqli_query($conn, "SELECT c.name FROM categories c JOIN campaign_categories cc ON c.id = cc.category_id WHERE cc.campaign_id = $camp_id AND c.clinic_id = $clinic_id");
                     $cats = [];
                     while($c = mysqli_fetch_assoc($c_res)){ $cats[] = $c['name']; }
 
-                    // Count queued/sent
-                    $q_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total, SUM(CASE WHEN status='Sent' THEN 1 ELSE 0 END) as sent FROM message_queue WHERE campaign_id = $camp_id"));
+                    // Count queued/sent (isolated by clinic_id)
+                    $q_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total, SUM(CASE WHEN status='Sent' THEN 1 ELSE 0 END) as sent FROM message_queue WHERE campaign_id = $camp_id AND clinic_id = $clinic_id"));
                 ?>
                 <tr>
                     <td>
@@ -73,4 +74,6 @@ $campaigns = mysqli_query($conn, $query);
     </div>
 </div>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

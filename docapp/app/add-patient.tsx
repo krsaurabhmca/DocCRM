@@ -37,8 +37,10 @@ export default function AddPatient() {
     father_name: "",
     address: "",
     fee: "0",
+    doctor_id: "",
     category_ids: [] as number[]
   });
+  const [doctors, setDoctors] = useState<any[]>([]);
   const [fieldSettings, setFieldSettings] = useState({
     enable_email: true,
     enable_father_name: false
@@ -47,10 +49,25 @@ export default function AddPatient() {
   useEffect(() => {
     fetchFieldSettings();
     fetchCategories();
+    fetchDoctors();
     if (id) {
       fetchPatientData();
     }
   }, [id]);
+
+  const fetchDoctors = async () => {
+    try {
+      const response = await fetch(`${API_BASE}?action=get_doctors`, {
+        headers: { "X-API-KEY": API_KEY }
+      });
+      const json = await response.json();
+      if (json.success) {
+        setDoctors(json.data);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchFieldSettings = async () => {
     try {
@@ -103,6 +120,7 @@ export default function AddPatient() {
           gender: p.gender || "Male",
           father_name: p.father_name || "",
           address: p.address || "",
+          doctor_id: p.doctor_id ? p.doctor_id.toString() : "",
           category_ids: (p.category_ids || []).map((cid: any) => Number(cid))
         });
       }
@@ -176,12 +194,7 @@ export default function AddPatient() {
     >
       <ScrollView style={styles.container}>
         <Stack.Screen options={{ title: today === "1" ? "Add Today Appointment" : (id ? "Edit Clinical File" : "Patient Onboarding") }} />
-        {/* 
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{id ? "Update Information" : "New Patient Registration"}</Text>
-          <Text style={styles.headerSub}>Complete the details below to open a clinical file.</Text>
-        </View> */}
-
+        
         {/* Section 1: Demographics */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -359,7 +372,38 @@ export default function AddPatient() {
           </View>
         </View>
 
-        {/* Section 4: Billing */}
+        {/* Section 4: Medical Professional */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="medical" size={18} color={Theme.colors.primary} />
+            <Text style={styles.sectionTitle}>Medical Professional</Text>
+          </View>
+          <Text style={styles.sectionDesc}>Assign this patient to a specific doctor in your clinic.</Text>
+          <View style={styles.categoryGrid}>
+            {doctors.map(doc => (
+              <TouchableOpacity
+                key={doc.id}
+                style={[
+                  styles.categoryChip,
+                  form.doctor_id === doc.id.toString() && styles.selectedChip
+                ]}
+                onPress={() => setForm({ ...form, doctor_id: doc.id.toString() })}
+              >
+                <Text style={[
+                  styles.chipText,
+                  form.doctor_id === doc.id.toString() && styles.selectedChipText
+                ]}>
+                  Dr. {doc.name}
+                </Text>
+                {form.doctor_id === doc.id.toString() && (
+                  <Ionicons name="checkmark-circle" size={16} color="white" style={{ marginLeft: 5 }} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Section 5: Billing */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="cash" size={18} color={Theme.colors.success} />

@@ -8,10 +8,10 @@ $stats = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
     SUM(CASE WHEN status = 'Sent' THEN 1 ELSE 0 END) as sent,
     SUM(CASE WHEN status = 'Failed' THEN 1 ELSE 0 END) as failed
-FROM message_queue"));
+FROM message_queue WHERE clinic_id = $clinic_id"));
 
-// Fetch Latest 20 Queue items
-$queue_items = mysqli_query($conn, "SELECT * FROM message_queue ORDER BY created_at DESC LIMIT 20");
+// Fetch Latest 20 Queue items (isolated by clinic)
+$queue_items = mysqli_query($conn, "SELECT * FROM message_queue WHERE clinic_id = $clinic_id ORDER BY created_at DESC LIMIT 20");
 
 // Get absolute path for cron command
 $cron_path = realpath(__DIR__ . '/cron.php');

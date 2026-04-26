@@ -1,15 +1,16 @@
 <?php
+ob_start();
 $page_title = 'Create Campaign';
 require_once 'components/header.php';
 
 $title = $content_type = $content = $media_url = $schedule_type = $scheduled_at = '';
 $campaign_category_ids = [];
 
-// Fetch categories for targeting
-$categories = mysqli_query($conn, "SELECT * FROM categories ORDER BY name ASC");
+// Fetch categories for targeting (isolated by clinic)
+$categories = mysqli_query($conn, "SELECT * FROM categories WHERE clinic_id = $clinic_id ORDER BY name ASC");
 
-// Fetch templates
-$templates_res = mysqli_query($conn, "SELECT * FROM templates ORDER BY name ASC");
+// Fetch templates (isolated by clinic)
+$templates_res = mysqli_query($conn, "SELECT * FROM templates WHERE clinic_id = $clinic_id ORDER BY name ASC");
 $templates = [];
 while($t = mysqli_fetch_assoc($templates_res)) {
     $templates[] = $t;
@@ -41,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     $status = ($schedule_type == 'schedule' && strtotime($scheduled_at) > time()) ? 'Scheduled' : 'Processing';
 
-    $sql = "INSERT INTO campaigns (title, content_type, content, media_url, scheduled_at, status) VALUES ('$title', '$content_type', '$content', '$media_url', '$scheduled_at', '$status')";
+    $sql = "INSERT INTO campaigns (clinic_id, title, content_type, content, media_url, scheduled_at, status) VALUES ($clinic_id, '$title', '$content_type', '$content', '$media_url', '$scheduled_at', '$status')";
     
     if (mysqli_query($conn, $sql)) {
         $campaign_id = mysqli_insert_id($conn);
@@ -59,13 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // Queue Messages
         if (!empty($selected_cats)) {
             $cat_in = implode(',', $selected_cats);
-            $patients_sql = "SELECT DISTINCT p.id, p.phone FROM patients p JOIN patient_categories pc ON p.id = pc.patient_id WHERE pc.category_id IN ($cat_in)";
+            $patients_sql = "SELECT DISTINCT p.id, p.phone FROM patients p JOIN patient_categories pc ON p.id = pc.patient_id WHERE pc.category_id IN ($cat_in) AND p.clinic_id = $clinic_id";
             $p_result = mysqli_query($conn, $patients_sql);
             
             while ($p_row = mysqli_fetch_assoc($p_result)) {
                 $p_id = $p_row['id'];
                 $msg = mysqli_real_escape_string($conn, $content);
-                mysqli_query($conn, "INSERT INTO message_queue (campaign_id, patient_id, message, media_url, scheduled_for, status) VALUES ($campaign_id, $p_id, '$msg', '$media_url', '$scheduled_at', 'Pending')");
+                mysqli_query($conn, "INSERT INTO message_queue (clinic_id, campaign_id, patient_id, message, media_url, scheduled_for, status) VALUES ($clinic_id, $campaign_id, $p_id, '$msg', '$media_url', '$scheduled_at', 'Pending')");
             }
         }
 
@@ -180,4 +181,6 @@ function applyTemplate() {
 }
 </script>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

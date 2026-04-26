@@ -3,19 +3,19 @@ $page_title = 'Dashboard';
 require_once 'components/header.php';
 
 // Fetch stats
-$patients_count = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients"))['cnt'] ?? 0;
-$pending_docs = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM reminders WHERE status = 'Pending'"))['cnt'] ?? 0;
-$scheduled_followups = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE status = 'Scheduled'"))['cnt'] ?? 0;
-$active_campaigns = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM campaigns WHERE status IN ('Scheduled', 'Processing')"))['cnt'] ?? 0;
+$patients_count = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM patients WHERE clinic_id = $clinic_id"))['cnt'] ?? 0;
+$pending_docs = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM reminders WHERE status = 'Pending' AND clinic_id = $clinic_id"))['cnt'] ?? 0;
+$scheduled_followups = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM followups WHERE status = 'Scheduled' AND clinic_id = $clinic_id"))['cnt'] ?? 0;
+$active_campaigns = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM campaigns WHERE status IN ('Scheduled', 'Processing') AND clinic_id = $clinic_id"))['cnt'] ?? 0;
 
 // Update overdue docs automatically
-mysqli_query($conn, "UPDATE reminders SET status = 'Overdue' WHERE status = 'Pending' AND due_date < CURDATE()");
+mysqli_query($conn, "UPDATE reminders SET status = 'Overdue' WHERE status = 'Pending' AND due_date < CURDATE() AND clinic_id = $clinic_id");
 
 // Recent Patients
-$recent_patients = mysqli_query($conn, "SELECT * FROM patients ORDER BY id DESC LIMIT 5");
+$recent_patients = mysqli_query($conn, "SELECT * FROM patients WHERE clinic_id = $clinic_id ORDER BY id DESC LIMIT 5");
 
 // Delivery Report Stats
-$delivery_stats = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total, SUM(CASE WHEN status='Sent' THEN 1 ELSE 0 END) as sent, SUM(CASE WHEN status='Failed' THEN 1 ELSE 0 END) as failed FROM message_logs"));
+$delivery_stats = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total, SUM(CASE WHEN status='Sent' THEN 1 ELSE 0 END) as sent, SUM(CASE WHEN status='Failed' THEN 1 ELSE 0 END) as failed FROM message_logs WHERE clinic_id = $clinic_id"));
 ?>
 
 <div class="d-flex justify-between align-center mb-4">
@@ -117,7 +117,7 @@ $delivery_stats = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total
                 </thead>
                 <tbody>
                     <?php 
-                    $cat_stats = mysqli_query($conn, "SELECT c.name, COUNT(pc.patient_id) as total FROM categories c LEFT JOIN patient_categories pc ON c.id = pc.category_id GROUP BY c.id ORDER BY total DESC LIMIT 5");
+                    $cat_stats = mysqli_query($conn, "SELECT c.name, COUNT(pc.patient_id) as total FROM categories c LEFT JOIN patient_categories pc ON c.id = pc.category_id WHERE c.clinic_id = $clinic_id GROUP BY c.id ORDER BY total DESC LIMIT 5");
                     while($row = mysqli_fetch_assoc($cat_stats)): 
                     ?>
                     <tr>
@@ -149,7 +149,7 @@ $delivery_stats = safe_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total
                 </thead>
                 <tbody>
                     <?php 
-                    $recent_logs = mysqli_query($conn, "SELECT l.*, p.name FROM message_logs l JOIN patients p ON l.patient_id = p.id ORDER BY l.sent_at DESC LIMIT 5");
+                    $recent_logs = mysqli_query($conn, "SELECT l.*, p.name FROM message_logs l JOIN patients p ON l.patient_id = p.id WHERE l.clinic_id = $clinic_id ORDER BY l.sent_at DESC LIMIT 5");
                     while($row = mysqli_fetch_assoc($recent_logs)): 
                     ?>
                     <tr>

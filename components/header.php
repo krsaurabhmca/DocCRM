@@ -2,10 +2,11 @@
 require_once 'db.php'; 
 session_start();
 
-if (!isset($_SESSION['admin_id'])) {
+if (!isset($_SESSION['admin_id']) || !isset($_SESSION['clinic_id'])) {
     header("Location: login.php");
     exit;
 }
+$clinic_id = $_SESSION['clinic_id'];
 ?>
 <!DOCTYPE html>
 <html lang="en">

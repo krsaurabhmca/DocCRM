@@ -1,4 +1,5 @@
 <?php
+ob_start();
 $page_title = 'Patients Directory';
 require_once 'components/header.php';
 
@@ -14,7 +15,7 @@ if (isset($_GET['delete'])) {
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 $category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
 
-$whereClause = "WHERE 1=1";
+$whereClause = "WHERE p.clinic_id = $clinic_id";
 if ($search) {
     $whereClause .= " AND (p.name LIKE '%$search%' OR p.phone LIKE '%$search%' OR p.email LIKE '%$search%')";
 }
@@ -26,7 +27,7 @@ $query = "SELECT p.* FROM patients p $whereClause ORDER BY p.id DESC";
 $patients = mysqli_query($conn, $query);
 
 // Fetch categories for filter
-$categories_list = mysqli_query($conn, "SELECT * FROM categories ORDER BY name ASC");
+$categories_list = mysqli_query($conn, "SELECT * FROM categories WHERE clinic_id = $clinic_id ORDER BY name ASC");
 ?>
 
 <div class="d-flex justify-between align-center mb-4">
@@ -134,4 +135,6 @@ $categories_list = mysqli_query($conn, "SELECT * FROM categories ORDER BY name A
     </div>
 </div>
 
-<?php require_once 'components/footer.php'; ?>
+<?php require_once 'components/footer.php'; 
+ob_end_flush();
+?>

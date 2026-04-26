@@ -23,6 +23,7 @@ echo "Processing queue at " . $now . "...\n";
 
 while ($row = mysqli_fetch_assoc($res)) {
     $id = $row['id'];
+    $clinic_id = $row['clinic_id']; // Set global clinic_id for send_aoc_whatsapp
     mysqli_query($conn, "UPDATE message_queue SET status = 'Processing' WHERE id = $id");
 
     $variables = json_decode($row['variables'], true);

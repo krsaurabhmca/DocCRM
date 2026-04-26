@@ -24,24 +24,39 @@ if (!$conn) {
 
 // Create tables if they don't exist
 $tables = [
+    "CREATE TABLE IF NOT EXISTS clinics (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        phone VARCHAR(20) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )",
     "CREATE TABLE IF NOT EXISTS admins (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
         username VARCHAR(50) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )",
     "CREATE TABLE IF NOT EXISTS categories (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
         name VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )",
     "CREATE TABLE IF NOT EXISTS diseases (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
         name VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )",
     "CREATE TABLE IF NOT EXISTS patients (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
+        doctor_id INT NULL,
+        patient_uid VARCHAR(100) NULL,
         name VARCHAR(255) NOT NULL,
         phone VARCHAR(50) NOT NULL,
         email VARCHAR(255),
@@ -69,6 +84,7 @@ $tables = [
     )",
     "CREATE TABLE IF NOT EXISTS campaigns (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
         title VARCHAR(255) NOT NULL,
         content_type ENUM('Text', 'Image', 'Video') DEFAULT 'Text',
         content TEXT,
@@ -86,6 +102,7 @@ $tables = [
     )",
     "CREATE TABLE IF NOT EXISTS message_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
         patient_id INT NOT NULL,
         message TEXT,
         status ENUM('Sent', 'Failed') NOT NULL,
@@ -95,6 +112,7 @@ $tables = [
     )",
     "CREATE TABLE IF NOT EXISTS reminders (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
         patient_id INT NOT NULL,
         document_name VARCHAR(255) NOT NULL,
         due_date DATE NOT NULL,
@@ -105,6 +123,7 @@ $tables = [
     )",
     "CREATE TABLE IF NOT EXISTS followups (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
         patient_id INT NOT NULL,
         followup_date DATE NOT NULL,
         followup_type VARCHAR(100),
@@ -114,38 +133,43 @@ $tables = [
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
     )",
-    "CREATE TABLE IF NOT EXISTS templates (" .
-    "id INT AUTO_INCREMENT PRIMARY KEY, " .
-    "slug VARCHAR(50) UNIQUE NULL, " .
-    "name VARCHAR(255) NOT NULL, " .
-    "content_type ENUM('Text', 'Image') DEFAULT 'Text', " .
-    "content_part1 TEXT NOT NULL, " .
-    "content_part2 TEXT NULL, " .
-    "content_part3 TEXT NULL, " .
-    "media_url VARCHAR(255) NULL, " .
-    "is_default TINYINT(1) DEFAULT 0, " .
-    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" .
-    ")",
-    "CREATE TABLE IF NOT EXISTS message_queue (" .
-    "id INT AUTO_INCREMENT PRIMARY KEY, " .
-    "to_number VARCHAR(20) NOT NULL, " .
-    "template_name VARCHAR(100) NOT NULL, " .
-    "variables TEXT NOT NULL, " .
-    "header_type VARCHAR(20) DEFAULT 'none', " .
-    "media_url TEXT NULL, " .
-    "status ENUM('Pending', 'Processing', 'Sent', 'Failed') DEFAULT 'Pending', " .
-    "error_message TEXT NULL, " .
-    "scheduled_at DATETIME NOT NULL, " .
-    "processed_at DATETIME NULL, " .
-    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" .
-    ")",
+    "CREATE TABLE IF NOT EXISTS templates (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
+        aoc_template_name VARCHAR(50) NULL,
+        name VARCHAR(255) NOT NULL,
+        content_type ENUM('Text', 'Image') DEFAULT 'Text',
+        content_part1 TEXT NOT NULL,
+        content_part2 TEXT NULL,
+        content_part3 TEXT NULL,
+        media_url VARCHAR(255) NULL,
+        is_default TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )",
+    "CREATE TABLE IF NOT EXISTS message_queue (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
+        to_number VARCHAR(20) NOT NULL,
+        template_name VARCHAR(100) NOT NULL,
+        variables TEXT NOT NULL,
+        header_type VARCHAR(20) DEFAULT 'none',
+        media_url TEXT NULL,
+        status ENUM('Pending', 'Processing', 'Sent', 'Failed') DEFAULT 'Pending',
+        error_message TEXT NULL,
+        scheduled_at DATETIME NOT NULL,
+        processed_at DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )",
     "CREATE TABLE IF NOT EXISTS app_settings (
-        setting_key VARCHAR(100) PRIMARY KEY,
+        clinic_id INT NOT NULL,
+        setting_key VARCHAR(100),
         setting_value TEXT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (clinic_id, setting_key)
     )",
     "CREATE TABLE IF NOT EXISTS doctors (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NOT NULL,
         name VARCHAR(255) NOT NULL,
         specialization VARCHAR(255),
         qualification VARCHAR(255),
@@ -157,6 +181,7 @@ $tables = [
     )",
     "CREATE TABLE IF NOT EXISTS login_otps (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        clinic_id INT NULL,
         phone VARCHAR(20) NOT NULL,
         otp VARCHAR(10) NOT NULL,
         status ENUM('Pending', 'Verified', 'Expired') DEFAULT 'Pending',
@@ -170,35 +195,104 @@ foreach ($tables as $sql) {
     }
 }
 
-// Seed App Settings if empty
-$check_settings = mysqli_query($conn, "SELECT setting_key FROM app_settings LIMIT 1");
-if ($check_settings && mysqli_num_rows($check_settings) == 0) {
-    mysqli_query($conn, "INSERT INTO app_settings (setting_key, setting_value) VALUES 
-        ('clinic_name', 'DocCRM Clinic'),
-        ('whatsapp_enabled', '0'),
-        ('whatsapp_api_key', ''),
-        ('whatsapp_from_number', ''),
-        ('clinic_address', ''),
-        ('clinic_phone', ''),
-        ('clinic_email', ''),
-        ('clinic_timings', '10:00 AM - 08:00 PM'),
-        ('working_hours', '{}'),
-        ('clinic_logo', ''),
-        ('clinic_cover', 'http://192.168.1.15/doccrm/uploads/clinic_banner_default.png'),
-        ('whatsapp_header_image', 'http://192.168.1.15/doccrm/uploads/clinic_banner_default.png'),
-        ('working_days', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday'),
-        ('max_new_patients', '0'),
-        ('max_old_patients', '0'),
-        ('welcome_template', 'welcome_msg'),
-        ('reminder_template', 'appointment_reminder')");
+// Create a default clinic if none exists
+$clinic_check = mysqli_query($conn, "SELECT id FROM clinics LIMIT 1");
+if (mysqli_num_rows($clinic_check) == 0) {
+    mysqli_query($conn, "INSERT INTO clinics (name, email, phone, password, address) VALUES 
+        ('Default Clinic', 'admin@doccrm.com', '1234567890', '" . password_hash('admin123', PASSWORD_DEFAULT) . "', 'Main Street, City')");
+    $default_clinic_id = mysqli_insert_id($conn);
+} else {
+    $clinic_row = mysqli_fetch_assoc($clinic_check);
+    $default_clinic_id = $clinic_row['id'];
 }
 
-// Seed Default Templates if empty
-$check_templates = mysqli_query($conn, "SELECT id FROM templates LIMIT 1");
+// Migration: Add clinic_id to existing tables if missing and set default
+$multi_tenant_tables = [
+    'admins', 'categories', 'diseases', 'patients', 'campaigns', 'message_logs', 
+    'reminders', 'followups', 'templates', 'message_queue', 'doctors', 'login_otps'
+];
+
+foreach ($multi_tenant_tables as $table) {
+    $check_col = mysqli_query($conn, "SHOW COLUMNS FROM $table LIKE 'clinic_id'");
+    if ($check_col && mysqli_num_rows($check_col) == 0) {
+        mysqli_query($conn, "ALTER TABLE $table ADD COLUMN clinic_id INT NOT NULL DEFAULT $default_clinic_id AFTER id");
+        // Update existing records to default clinic
+        mysqli_query($conn, "UPDATE $table SET clinic_id = $default_clinic_id WHERE clinic_id = 0");
+    }
+}
+
+// Migration for templates: Ensure aoc_template_name exists
+$check_aoc = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'aoc_template_name'");
+if ($check_aoc && mysqli_num_rows($check_aoc) == 0) {
+    $check_slug = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'slug'");
+    if ($check_slug && mysqli_num_rows($check_slug) > 0) {
+        mysqli_query($conn, "ALTER TABLE templates CHANGE COLUMN slug aoc_template_name VARCHAR(50) NULL");
+    } else {
+        mysqli_query($conn, "ALTER TABLE templates ADD COLUMN aoc_template_name VARCHAR(50) NULL AFTER clinic_id");
+    }
+}
+
+// Migration for followups: Ensure doctor_id exists
+$check_f_doc = mysqli_query($conn, "SHOW COLUMNS FROM followups LIKE 'doctor_id'");
+if ($check_f_doc && mysqli_num_rows($check_f_doc) == 0) {
+    mysqli_query($conn, "ALTER TABLE followups ADD COLUMN doctor_id INT NULL AFTER clinic_id");
+}
+
+// Migration for login_otps: Ensure doctor_id exists
+$check_otp_doc = mysqli_query($conn, "SHOW COLUMNS FROM login_otps LIKE 'doctor_id'");
+if ($check_otp_doc && mysqli_num_rows($check_otp_doc) == 0) {
+    mysqli_query($conn, "ALTER TABLE login_otps ADD COLUMN doctor_id INT NULL AFTER clinic_id");
+}
+
+// Special handling for app_settings (it doesn't have an 'id' column)
+$check_settings_cid = mysqli_query($conn, "SHOW COLUMNS FROM app_settings LIKE 'clinic_id'");
+if ($check_settings_cid && mysqli_num_rows($check_settings_cid) == 0) {
+    // Drop primary key first
+    mysqli_query($conn, "ALTER TABLE app_settings DROP PRIMARY KEY");
+    // Add clinic_id
+    mysqli_query($conn, "ALTER TABLE app_settings ADD COLUMN clinic_id INT NOT NULL DEFAULT $default_clinic_id FIRST");
+    // Update existing records
+    mysqli_query($conn, "UPDATE app_settings SET clinic_id = $default_clinic_id");
+    // Add new composite primary key
+    mysqli_query($conn, "ALTER TABLE app_settings ADD PRIMARY KEY (clinic_id, setting_key)");
+}
+
+// Seed App Settings for default clinic if empty
+$check_settings = mysqli_query($conn, "SELECT setting_key FROM app_settings WHERE clinic_id = $default_clinic_id LIMIT 1");
+if ($check_settings && mysqli_num_rows($check_settings) == 0) {
+    mysqli_query($conn, "INSERT INTO app_settings (clinic_id, setting_key, setting_value) VALUES 
+        ($default_clinic_id, 'clinic_name', 'DocCRM Clinic'),
+        ($default_clinic_id, 'whatsapp_enabled', '0'),
+        ($default_clinic_id, 'whatsapp_api_key', ''),
+        ($default_clinic_id, 'whatsapp_from_number', ''),
+        ($default_clinic_id, 'clinic_address', ''),
+        ($default_clinic_id, 'clinic_phone', ''),
+        ($default_clinic_id, 'clinic_email', ''),
+        ($default_clinic_id, 'clinic_timings', '10:00 AM - 08:00 PM'),
+        ($default_clinic_id, 'working_hours', '{}'),
+        ($default_clinic_id, 'clinic_logo', ''),
+        ($default_clinic_id, 'clinic_cover', 'http://192.168.1.15/doccrm/uploads/clinic_banner_default.png'),
+        ($default_clinic_id, 'whatsapp_header_image', 'http://192.168.1.15/doccrm/uploads/clinic_banner_default.png'),
+        ($default_clinic_id, 'working_days', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday'),
+        ($default_clinic_id, 'max_new_patients', '0'),
+        ($default_clinic_id, 'max_old_patients', '0'),
+        ($default_clinic_id, 'welcome_template', 'welcome_msg'),
+        ($default_clinic_id, 'reminder_template', 'appointment_reminder')");
+}
+
+// Seed Default Templates for default clinic if empty
+$check_templates = mysqli_query($conn, "SELECT id FROM templates WHERE clinic_id = $default_clinic_id LIMIT 1");
 if ($check_templates && mysqli_num_rows($check_templates) == 0) {
-    mysqli_query($conn, "INSERT INTO templates (name, content_type, content_part1, content_part2) VALUES 
-        ('Regular Checkup Reminder', 'Text', 'Hello [Patient Name], this is a reminder for your regular health checkup.', 'Please visit us between 10 AM to 5 PM.'),
-        ('Holiday Clinic Notice', 'Image', 'Dear Patients, please note that our clinic will be closed on [Date] due to [Holiday].', 'We will resume on [Next Date].')");
+    mysqli_query($conn, "INSERT INTO templates (clinic_id, name, content_type, content_part1, content_part2) VALUES 
+        ($default_clinic_id, 'Regular Checkup Reminder', 'Text', 'Hello [Patient Name], this is a reminder for your regular health checkup.', 'Please visit us between 10 AM to 5 PM.'),
+        ($default_clinic_id, 'Holiday Clinic Notice', 'Image', 'Dear Patients, please note that our clinic will be closed on [Date] due to [Holiday].', 'We will resume on [Next Date].')");
+}
+
+// Insert default admin if none exists for the default clinic
+$admin_check = mysqli_query($conn, "SELECT id FROM admins WHERE clinic_id = $default_clinic_id");
+if (mysqli_num_rows($admin_check) == 0) {
+    $pass = password_hash('admin123', PASSWORD_DEFAULT);
+    mysqli_query($conn, "INSERT INTO admins (clinic_id, username, password) VALUES ($default_clinic_id, 'admin', '$pass')");
 }
 
 // Add missing columns to campaigns if it was created previously
@@ -246,67 +340,39 @@ if ($check_def && mysqli_num_rows($check_def) == 0) {
     mysqli_query($conn, "ALTER TABLE templates ADD COLUMN is_default TINYINT(1) DEFAULT 0 AFTER media_url");
 }
 
-// Migration for message_queue system
-$check_mq = mysqli_query($conn, "SHOW COLUMNS FROM message_queue LIKE 'to_number'");
-if ($check_mq && mysqli_num_rows($check_mq) == 0) {
-    mysqli_query($conn, "DROP TABLE IF EXISTS message_queue");
-    mysqli_query($conn, "CREATE TABLE message_queue (
-        id INT AUTO_INCREMENT PRIMARY KEY, 
-        to_number VARCHAR(20) NOT NULL, 
-        template_name VARCHAR(100) NOT NULL, 
-        variables TEXT NOT NULL, 
-        header_type VARCHAR(20) DEFAULT 'none', 
-        media_url TEXT NULL, 
-        status ENUM('Pending', 'Processing', 'Sent', 'Failed') DEFAULT 'Pending', 
-        error_message TEXT NULL, 
-        scheduled_at DATETIME NOT NULL, 
-        processed_at DATETIME NULL, 
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )");
-}
-$check_slug = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'slug'");
-if ($check_slug && mysqli_num_rows($check_slug) > 0) {
-    mysqli_query($conn, "ALTER TABLE templates CHANGE COLUMN slug aoc_template_name VARCHAR(50) NULL");
-} else {
-    $check_aoc = mysqli_query($conn, "SHOW COLUMNS FROM templates LIKE 'aoc_template_name'");
-    if ($check_aoc && mysqli_num_rows($check_aoc) == 0) {
-        mysqli_query($conn, "ALTER TABLE templates ADD COLUMN aoc_template_name VARCHAR(50) NULL AFTER id");
-    }
-}
-
 // Safer check for settings
 $clinic_name = "Our Clinic";
 $clinic_addr = "";
 $check_settings_table = mysqli_query($conn, "SHOW TABLES LIKE 'app_settings'");
 if ($check_settings_table && mysqli_num_rows($check_settings_table) > 0) {
-    $cn_res = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name'");
+    $cn_res = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_name' AND clinic_id = $default_clinic_id");
     if ($cn_res) {
         $cn_row = mysqli_fetch_assoc($cn_res);
         if ($cn_row) $clinic_name = $cn_row['setting_value'];
     }
-    $ca_res = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address'");
+    $ca_res = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'clinic_address' AND clinic_id = $default_clinic_id");
     if ($ca_res) {
         $ca_row = mysqli_fetch_assoc($ca_res);
         if ($ca_row) $clinic_addr = $ca_row['setting_value'];
     }
     
     // Seed default template name
-    mysqli_query($conn, "INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES ('whatsapp_default_template', 'info_update_43')");
+    mysqli_query($conn, "INSERT IGNORE INTO app_settings (clinic_id, setting_key, setting_value) VALUES ($default_clinic_id, 'whatsapp_default_template', 'info_update_43')");
 }
 $part3_default = "*$clinic_name*\n$clinic_addr";
 
 // 1. Greeting Message
-$check_greet = mysqli_query($conn, "SELECT id FROM templates WHERE aoc_template_name = 'greeting'");
+$check_greet = mysqli_query($conn, "SELECT id FROM templates WHERE aoc_template_name = 'greeting' AND clinic_id = $default_clinic_id");
 if ($check_greet && mysqli_num_rows($check_greet) == 0) {
-    mysqli_query($conn, "INSERT INTO templates (aoc_template_name, name, content_type, content_part1, content_part2, content_part3, is_default) 
-    VALUES ('greeting', 'New Patient Greeting', 'Image', 'Dear #Patient Name#', 'Welcome to our clinic. We are happy to serve you.', '$part3_default', 1)");
+    mysqli_query($conn, "INSERT INTO templates (clinic_id, aoc_template_name, name, content_type, content_part1, content_part2, content_part3, is_default) 
+    VALUES ($default_clinic_id, 'greeting', 'New Patient Greeting', 'Image', 'Dear #Patient Name#', 'Welcome to our clinic. We are happy to serve you.', '$part3_default', 1)");
 }
 
 // 2. Appointment Message
-$check_app = mysqli_query($conn, "SELECT id FROM templates WHERE aoc_template_name = 'appointment'");
+$check_app = mysqli_query($conn, "SELECT id FROM templates WHERE aoc_template_name = 'appointment' AND clinic_id = $default_clinic_id");
 if ($check_app && mysqli_num_rows($check_app) == 0) {
-    mysqli_query($conn, "INSERT INTO templates (aoc_template_name, name, content_type, content_part1, content_part2, content_part3, is_default) 
-    VALUES ('appointment', 'Appointment Confirmation', 'Image', 'Dear #Patient Name#', 'Your appointment has been confirmed. Please visit on time.', '$part3_default', 0)");
+    mysqli_query($conn, "INSERT INTO templates (clinic_id, aoc_template_name, name, content_type, content_part1, content_part2, content_part3, is_default) 
+    VALUES ($default_clinic_id, 'appointment', 'Appointment Confirmation', 'Image', 'Dear #Patient Name#', 'Your appointment has been confirmed. Please visit on time.', '$part3_default', 0)");
 }
 
 // Migration for 3-part content system
@@ -330,18 +396,6 @@ if ($check_unit && mysqli_num_rows($check_unit) == 0) {
     mysqli_query($conn, "ALTER TABLE patients MODIFY COLUMN age_unit ENUM('Y', 'M', 'D') DEFAULT 'Y'");
 }
 
-// Add doctor_id to patients if missing
-$check_doc_p = mysqli_query($conn, "SHOW COLUMNS FROM patients LIKE 'doctor_id'");
-if ($check_doc_p && mysqli_num_rows($check_doc_p) == 0) {
-    mysqli_query($conn, "ALTER TABLE patients ADD COLUMN doctor_id INT NULL AFTER id");
-}
-
-// Insert default admin if none exists
-$admin_check = mysqli_query($conn, "SELECT id FROM admins");
-if (mysqli_num_rows($admin_check) == 0) {
-    $pass = password_hash('admin123', PASSWORD_DEFAULT);
-    mysqli_query($conn, "INSERT INTO admins (username, password) VALUES ('admin', '$pass')");
-}
 // Add qualification and experience to doctors if missing
 @$check_doc_q = mysqli_query($conn, "SHOW COLUMNS FROM doctors LIKE 'qualification'");
 if ($check_doc_q && mysqli_num_rows($check_doc_q) == 0) {
