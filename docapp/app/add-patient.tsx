@@ -14,6 +14,7 @@ import {
 import { useRouter, Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Theme } from "../styles/Theme";
 import { GlobalStyles } from "../styles/GlobalStyles";
 import { Config } from "../Config";
@@ -26,7 +27,25 @@ export default function AddPatient() {
   const { id, today } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadToken();
+  }, []);
+
+  const loadToken = async () => {
+    const t = await AsyncStorage.getItem("userToken");
+    if (t) {
+        setToken(t);
+        fetchCategories(t);
+        fetchSettings(t);
+        if (id) fetchPatientData(id as string, t);
+    } else {
+        Alert.alert("Session Expired", "Please login again.");
+        router.replace("/login");
+    }
+  };
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -46,19 +65,13 @@ export default function AddPatient() {
     enable_father_name: false
   });
 
-  useEffect(() => {
-    fetchFieldSettings();
-    fetchCategories();
-    fetchDoctors();
-    if (id) {
-      fetchPatientData();
-    }
-  }, [id]);
-
-  const fetchDoctors = async () => {
+  const fetchDoctors = async (t: string) => {
     try {
       const response = await fetch(`${API_BASE}?action=get_doctors`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": t
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -69,10 +82,13 @@ export default function AddPatient() {
     }
   };
 
-  const fetchFieldSettings = async () => {
+  const fetchSettings = async (t: string) => {
     try {
       const res = await fetch(`${API_BASE}?action=get_app_settings`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": t
+        }
       });
       const json = await res.json();
       if (json.success) {
@@ -89,10 +105,13 @@ export default function AddPatient() {
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (t: string) => {
     try {
       const response = await fetch(`${API_BASE}?action=get_categories`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": t
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -103,10 +122,13 @@ export default function AddPatient() {
     }
   };
 
-  const fetchPatientData = async () => {
+  const fetchPatientData = async (pid: string, t: string) => {
     try {
-      const response = await fetch(`${API_BASE}?action=get_patient&id=${id}`, {
-        headers: { "X-API-KEY": API_KEY }
+      const response = await fetch(`${API_BASE}?action=get_patient&id=${pid}`, {
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": t
+        }
       });
       const json = await response.json();
       if (json.success) {
@@ -120,6 +142,7 @@ export default function AddPatient() {
           gender: p.gender || "Male",
           father_name: p.father_name || "",
           address: p.address || "",
+          fee: "0",
           doctor_id: p.doctor_id ? p.doctor_id.toString() : "",
           category_ids: (p.category_ids || []).map((cid: any) => Number(cid))
         });
@@ -157,12 +180,19 @@ export default function AddPatient() {
       return;
     }
 
+    const savedToken = await AsyncStorage.getItem("userToken");
+    if (!savedToken) {
+        Alert.alert("Authentication Error", "Please login again.");
+        return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE}?action=save_patient`, {
         method: "POST",
         headers: {
           "X-API-KEY": API_KEY,
+          "X-TOKEN": savedToken,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({

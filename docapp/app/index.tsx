@@ -74,13 +74,23 @@ export default function Index() {
     else if (activeTab === "Home") action = "get_dashboard_stats";
 
     try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        setIsAuthenticated(false);
+        router.replace("/login");
+        return;
+      }
+
       let url = `${API_BASE}?action=${action}&search=${encodeURIComponent(searchQuery)}`;
       if (activeTab === "Reminders") {
         url += `&date=${selectedDate}`;
       }
 
       const response = await fetch(url, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": token
+        }
       });
 
       if (!response.ok) {
@@ -100,6 +110,10 @@ export default function Index() {
           setData(json.data);
         }
       } else {
+        if (json.message && json.message.includes("identification failed")) {
+            setIsAuthenticated(false);
+            router.replace("/login");
+        }
         setError(json.message || "Failed to fetch data");
       }
     } catch (err: any) {
@@ -114,13 +128,20 @@ export default function Index() {
   useFocusEffect(
     useCallback(() => {
       fetchData();
-    }, [fetchData])
+      if (activeTab === "Reminders") fetchMarkedDates();
+    }, [fetchData, activeTab])
   );
 
   const fetchMarkedDates = async () => {
     try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) return;
+
       const response = await fetch(`${API_BASE}?action=get_reminder_counts`, {
-        headers: { "X-API-KEY": API_KEY }
+        headers: { 
+            "X-API-KEY": API_KEY,
+            "X-TOKEN": token
+        }
       });
       
       if (!response.ok) return;
