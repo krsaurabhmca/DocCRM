@@ -62,208 +62,221 @@ export default function SignupScreen() {
       const json = await response.json();
       if (json.success) {
         Alert.alert(
-          'Registration Successful',
-          'Your clinic has been registered. You can now login with your credentials.',
-          [{ text: 'Login Now', onPress: () => router.replace('/login') }]
+          'Clinic Registered',
+          'Your medical profile has been created successfully. You can now login.',
+          [{ text: 'Login to Dashboard', onPress: () => router.replace('/login') }]
         );
       } else {
-        Alert.alert('Error', json.message || 'Signup failed');
+        Alert.alert('Registration Error', json.message || 'Signup failed');
       }
     } catch (error) {
-      Alert.alert('Connection Error', 'Please check your internet connection.');
+      Alert.alert('Network Error', 'Could not reach server. Please check your connection.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       <Stack.Screen options={{ headerShown: false }} />
-      <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?q=80&w=2028&auto=format&fit=crop' }}
-        style={styles.bgImage}
+      
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
       >
-        <View style={styles.overlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardView}
-          >
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 50 }}>
-                <Animated.View entering={FadeInUp.delay(200).duration(800)} style={styles.header}>
-                  <View style={styles.logoBadge}>
-                    <Ionicons name="medical" size={40} color="white" />
-                  </View>
-                  <Text style={styles.title}>Join DocCRM</Text>
-                  <Text style={styles.subtitle}>Start your SaaS clinic journey today</Text>
-                </Animated.View>
+        <ScrollView 
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={styles.scrollContent}
+        >
+            <View style={styles.header}>
+              <View style={styles.logoBadge}>
+                <Ionicons name="medical" size={32} color="white" />
+              </View>
+              <Text style={styles.title}>Create Clinic Account</Text>
+              <Text style={styles.subtitle}>Join our professional medical network</Text>
+            </View>
 
-                <Animated.View entering={FadeInDown.delay(400).duration(800)} style={styles.glassCard}>
-                  <Text style={styles.cardTitle}>Clinic Registration</Text>
-                  
-                  <View style={styles.inputSection}>
-                    <View style={styles.inputContainer}>
-                      <Ionicons name="hospital-outline" size={20} color="#94A3B8" style={styles.icon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Clinic Name"
-                        placeholderTextColor="#94A3B8"
-                        value={form.name}
-                        onChangeText={(t) => setForm({...form, name: t})}
-                      />
-                    </View>
+            <View style={styles.formCard}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Clinic Identity</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="business-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Full Clinic Name"
+                    placeholderTextColor="#CBD5E1"
+                    value={form.name}
+                    onChangeText={(t) => setForm({...form, name: t})}
+                  />
+                </View>
+              </View>
 
-                    <View style={styles.inputContainer}>
-                      <Ionicons name="mail-outline" size={20} color="#94A3B8" style={styles.icon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Official Email"
-                        placeholderTextColor="#94A3B8"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        value={form.email}
-                        onChangeText={(t) => setForm({...form, email: t})}
-                      />
-                    </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Contact Information</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="mail-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Official Email"
+                    placeholderTextColor="#CBD5E1"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={form.email}
+                    onChangeText={(t) => setForm({...form, email: t})}
+                  />
+                </View>
+                <View style={[styles.inputWrapper, { marginTop: 10 }]}>
+                  <Ionicons name="call-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Mobile Number"
+                    placeholderTextColor="#CBD5E1"
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    value={form.phone}
+                    onChangeText={(t) => setForm({...form, phone: t})}
+                  />
+                </View>
+              </View>
 
-                    <View style={styles.inputContainer}>
-                      <Ionicons name="call-outline" size={20} color="#94A3B8" style={styles.icon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Mobile Number"
-                        placeholderTextColor="#94A3B8"
-                        keyboardType="number-pad"
-                        maxLength={10}
-                        value={form.phone}
-                        onChangeText={(t) => setForm({...form, phone: t})}
-                      />
-                    </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Security</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="lock-closed-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Create Password"
+                    placeholderTextColor="#CBD5E1"
+                    secureTextEntry
+                    value={form.password}
+                    onChangeText={(t) => setForm({...form, password: t})}
+                  />
+                </View>
+              </View>
 
-                    <View style={styles.inputContainer}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.icon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Password"
-                        placeholderTextColor="#94A3B8"
-                        secureTextEntry
-                        value={form.password}
-                        onChangeText={(t) => setForm({...form, password: t})}
-                      />
-                    </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Clinical Address</Text>
+                <View style={[styles.inputWrapper, { alignItems: 'flex-start', paddingVertical: 10 }]}>
+                  <Ionicons name="location-outline" size={18} color="#94A3B8" style={[styles.inputIcon, { marginTop: 4 }]} />
+                  <TextInput
+                    style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                    placeholder="Complete Physical Address"
+                    placeholderTextColor="#CBD5E1"
+                    multiline
+                    value={form.address}
+                    onChangeText={(t) => setForm({...form, address: t})}
+                  />
+                </View>
+              </View>
 
-                    <View style={[styles.inputContainer, { alignItems: 'flex-start' }]}>
-                      <Ionicons name="location-outline" size={20} color="#94A3B8" style={[styles.icon, { marginTop: 18 }]} />
-                      <TextInput
-                        style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
-                        placeholder="Clinic Address"
-                        placeholderTextColor="#94A3B8"
-                        multiline
-                        value={form.address}
-                        onChangeText={(t) => setForm({...form, address: t})}
-                      />
-                    </View>
+              <TouchableOpacity
+                style={[styles.submitBtn, loading && styles.btnDisabled]}
+                onPress={handleSignup}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <>
+                    <Text style={styles.submitBtnText}>Register Now</Text>
+                    <Ionicons name="arrow-forward" size={20} color="white" />
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
 
-                    <TouchableOpacity
-                      style={[styles.mainBtn, loading && styles.btnDisabled]}
-                      onPress={handleSignup}
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <ActivityIndicator color="white" />
-                      ) : (
-                        <>
-                          <Text style={styles.btnText}>Register Clinic</Text>
-                          <Ionicons name="rocket" size={20} color="white" />
-                        </>
-                      )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => router.replace('/login')} style={styles.backBtn}>
-                        <Text style={styles.backBtnText}>Already have a clinic? <Text style={{ color: Theme.colors.primary, fontWeight: '800' }}>Login</Text></Text>
-                    </TouchableOpacity>
-                  </View>
-                </Animated.View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </View>
-      </ImageBackground>
-    </View>
+            <TouchableOpacity 
+                onPress={() => router.replace('/login')} 
+                style={styles.loginLink}
+            >
+                <Text style={styles.loginLinkText}>
+                  Already have an account? <Text style={styles.loginLinkHighlight}>Sign In</Text>
+                </Text>
+            </TouchableOpacity>
+            <View style={{ height: 40 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  bgImage: {
-    width: width,
-    height: height,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
   },
   keyboardView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 25,
+    paddingTop: 40,
   },
   header: {
     alignItems: 'center',
     marginBottom: 30,
   },
   logoBadge: {
-    width: 70,
-    height: 70,
+    width: 64,
+    height: 64,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: Theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: 'white',
-    letterSpacing: -1,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: '#64748B',
+    marginTop: 5,
     fontWeight: '500',
   },
-  glassCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
-    borderRadius: 32,
-    padding: 25,
-    marginHorizontal: 20,
+  formCard: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.2,
-    shadowRadius: 30,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  cardTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 20,
-    textAlign: 'center',
+  inputGroup: {
+    marginBottom: 18,
   },
-  inputSection: {
-    gap: 12,
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingLeft: 4,
   },
-  inputContainer: {
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#F1F5F9',
   },
-  icon: {
+  inputIcon: {
     marginRight: 12,
   },
   input: {
@@ -273,7 +286,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0F172A',
   },
-  mainBtn: {
+  submitBtn: {
     backgroundColor: Theme.colors.primary,
     borderRadius: 16,
     paddingVertical: 18,
@@ -286,18 +299,22 @@ const styles = StyleSheet.create({
   btnDisabled: {
     opacity: 0.6,
   },
-  btnText: {
+  submitBtnText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '800',
   },
-  backBtn: {
+  loginLink: {
     alignItems: 'center',
-    marginTop: 15,
+    marginTop: 25,
   },
-  backBtnText: {
+  loginLinkText: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
+  },
+  loginLinkHighlight: {
+    color: Theme.colors.primary,
+    fontWeight: '800',
   },
 });

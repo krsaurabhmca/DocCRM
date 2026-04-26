@@ -62,7 +62,7 @@ export default function LoginScreen() {
       if (json.success) {
         setStep(2);
       } else {
-        Alert.alert('Error', json.message || 'Failed to send OTP');
+        Alert.alert('Access Denied', json.message || 'Verification failed');
       }
     } catch (error) {
       Alert.alert('Connection Error', 'Please check your internet connection.');
@@ -107,7 +107,6 @@ export default function LoginScreen() {
         Alert.alert('Login Failed', json.message || 'Invalid credentials');
       }
     } catch (error) {
-        console.error(error);
       Alert.alert('Error', 'Login failed. Please try again.');
     } finally {
       setLoading(false);
@@ -149,62 +148,64 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       <Stack.Screen options={{ headerShown: false }} />
-      <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=2070&auto=format&fit=crop' }}
-        style={styles.bgImage}
-        blurRadius={Platform.OS === 'ios' ? 10 : 5}
+      
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
       >
-        <View style={styles.overlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardView}
-          >
-            <Animated.View entering={FadeInUp.delay(200).duration(800)} style={styles.header}>
+        <ScrollView 
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={styles.scrollContent}
+        >
+            <View style={styles.header}>
               <View style={styles.logoBadge}>
-                <Ionicons name="pulse" size={40} color="white" />
+                <Ionicons name="pulse" size={32} color="white" />
               </View>
-              <Text style={styles.title}>DocCRM</Text>
-              <Text style={styles.subtitle}>Clinical Excellence in Your Pocket</Text>
-            </Animated.View>
+              <Text style={styles.title}>Welcome to DocCRM</Text>
+              <Text style={styles.subtitle}>Professional Practice Management</Text>
+            </View>
 
-            <Animated.View entering={FadeInDown.delay(400).duration(800)} style={styles.glassCard}>
-              <Text style={styles.cardTitle}>{step === 1 ? 'Welcome Back' : (authMethod === 'otp' ? 'Verification' : 'Security Check')}</Text>
-              <Text style={styles.cardSub}>
-                {step === 1 
-                    ? 'Enter your clinic credentials to manage your practice.' 
-                    : (authMethod === 'otp' ? `Enter the 4-digit OTP sent to ${identity}` : 'Please enter your password to continue.')}
+            <View style={styles.formCard}>
+              <Text style={styles.cardTitle}>
+                {step === 1 ? 'Authentication' : (authMethod === 'otp' ? 'Verification' : 'Security Check')}
               </Text>
 
               <View style={styles.inputSection}>
                 {step === 1 ? (
-                    <View style={styles.inputContainer}>
-                        <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.icon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Email or Mobile Number"
-                            placeholderTextColor="#94A3B8"
-                            autoCapitalize="none"
-                            value={identity}
-                            onChangeText={setIdentity}
-                        />
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Clinic Identity</Text>
+                        <View style={styles.inputWrapper}>
+                            <Ionicons name="person-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Email or Mobile Number"
+                                placeholderTextColor="#CBD5E1"
+                                autoCapitalize="none"
+                                value={identity}
+                                onChangeText={setIdentity}
+                            />
+                        </View>
                     </View>
                 ) : (
-                    <View style={styles.inputContainer}>
-                        <Ionicons name={authMethod === 'otp' ? "key-outline" : "lock-closed-outline"} size={20} color="#94A3B8" style={styles.icon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder={authMethod === 'otp' ? "OTP Code" : "Password"}
-                            placeholderTextColor="#94A3B8"
-                            secureTextEntry={authMethod === 'password'}
-                            keyboardType={authMethod === 'otp' ? "number-pad" : "default"}
-                            maxLength={authMethod === 'otp' ? 4 : undefined}
-                            value={authMethod === 'otp' ? otp : password}
-                            onChangeText={authMethod === 'otp' ? setOtp : setPassword}
-                            autoFocus={true}
-                        />
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>{authMethod === 'otp' ? 'OTP Code' : 'Access Password'}</Text>
+                        <View style={styles.inputWrapper}>
+                            <Ionicons name={authMethod === 'otp' ? "key-outline" : "lock-closed-outline"} size={18} color="#94A3B8" style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder={authMethod === 'otp' ? "0000" : "••••••••"}
+                                placeholderTextColor="#CBD5E1"
+                                secureTextEntry={authMethod === 'password'}
+                                keyboardType={authMethod === 'otp' ? "number-pad" : "default"}
+                                maxLength={authMethod === 'otp' ? 4 : undefined}
+                                value={authMethod === 'otp' ? otp : password}
+                                onChangeText={authMethod === 'otp' ? setOtp : setPassword}
+                                autoFocus={true}
+                            />
+                        </View>
                     </View>
                 )}
 
@@ -217,7 +218,7 @@ export default function LoginScreen() {
                     <ActivityIndicator color="white" />
                   ) : (
                     <>
-                      <Text style={styles.btnText}>{step === 1 ? 'Continue' : 'Login'}</Text>
+                      <Text style={styles.btnText}>{step === 1 ? 'Continue' : 'Enter Dashboard'}</Text>
                       <Ionicons name="chevron-forward" size={20} color="white" />
                     </>
                   )}
@@ -229,123 +230,131 @@ export default function LoginScreen() {
                         style={styles.methodToggle}
                     >
                         <Text style={styles.methodToggleText}>
-                            Login with {authMethod === 'password' ? 'WhatsApp OTP' : 'Password'}
+                            Use {authMethod === 'password' ? 'WhatsApp OTP' : 'Secure Password'} instead
                         </Text>
                     </TouchableOpacity>
                 )}
 
                 {step === 2 && (
                   <TouchableOpacity onPress={() => setStep(1)} style={styles.backBtn}>
-                    <Text style={styles.backBtnText}>Back to Identity</Text>
+                    <Text style={styles.backBtnText}>Change credentials</Text>
                   </TouchableOpacity>
                 )}
               </View>
-            </Animated.View>
+            </View>
 
             <TouchableOpacity onPress={() => router.push('/signup')} style={styles.signupAction}>
-                <Text style={styles.signupText}>Don't have a clinic? <Text style={{ color: 'white', fontWeight: '800' }}>Create One</Text></Text>
+                <Text style={styles.signupText}>
+                    Need a clinic account? <Text style={styles.signupHighlight}>Create One</Text>
+                </Text>
             </TouchableOpacity>
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Secure SaaS Authentication</Text>
+              <Text style={styles.footerText}>Secure SaaS Gateway</Text>
+              <Ionicons name="shield-checkmark" size={14} color="#94A3B8" style={{ marginLeft: 5 }} />
             </View>
-          </KeyboardAvoidingView>
-        </View>
-      </ImageBackground>
-    </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  bgImage: {
-    width: width,
-    height: height,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(2, 132, 199, 0.4)',
-    padding: 30,
-    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
   },
   keyboardView: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  scrollContent: {
+    paddingHorizontal: 25,
+    paddingTop: 60,
   },
   header: {
     alignItems: 'center',
     marginBottom: 40,
   },
   logoBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: Theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
   },
   title: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: 'white',
-    letterSpacing: -1,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
-  },
-  glassCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 32,
-    padding: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.2,
-    shadowRadius: 30,
-    elevation: 10,
-  },
-  cardTitle: {
     fontSize: 24,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 8,
+    letterSpacing: -0.5,
   },
-  cardSub: {
+  subtitle: {
     fontSize: 14,
     color: '#64748B',
-    lineHeight: 20,
-    marginBottom: 25,
+    marginTop: 5,
+    fontWeight: '500',
+  },
+  formCard: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   inputSection: {
-    gap: 15,
+    gap: 12,
   },
-  inputContainer: {
+  inputGroup: {
+    marginBottom: 10,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#F1F5F9',
   },
-  icon: {
+  inputIcon: {
     marginRight: 12,
   },
   input: {
     flex: 1,
-    paddingVertical: 18,
-    fontSize: 16,
+    paddingVertical: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#0F172A',
   },
   mainBtn: {
-    backgroundColor: '#0284C7',
+    backgroundColor: Theme.colors.primary,
     borderRadius: 16,
     paddingVertical: 18,
     flexDirection: 'row',
@@ -359,53 +368,51 @@ const styles = StyleSheet.create({
   },
   btnText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
+  },
+  methodToggle: {
+    alignItems: 'center',
+    marginTop: 15,
+    padding: 10,
+  },
+  methodToggleText: {
+    color: Theme.colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   backBtn: {
     alignItems: 'center',
     marginTop: 15,
   },
   backBtnText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  signupAction: {
+    marginTop: 30,
+    alignItems: 'center',
+  },
+  signupText: {
     color: '#64748B',
     fontSize: 14,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+    fontWeight: '500',
+  },
+  signupHighlight: {
+    color: Theme.colors.primary,
+    fontWeight: '800',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'absolute',
-    bottom: 30,
-    width: '100%',
+    marginTop: 50,
+    marginBottom: 20,
   },
   footerText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 13,
-    fontWeight: '500',
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
   },
-  methodToggle: {
-    alignItems: 'center',
-    marginTop: 10,
-    padding: 10,
-  },
-  methodToggleText: {
-    color: '#0284C7',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  signupAction: {
-    marginTop: 25,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 15,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  signupText: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 15,
-  }
 });
